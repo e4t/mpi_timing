@@ -18,25 +18,29 @@ struct timespec diff(struct timespec start,struct timespec end) {
 }
 
 int main(int argc, char** argv) {
-  struct timespec time_start, time_end, res;
-  char mpi_version[MPI_MAX_LIBRARY_VERSION_STRING];
-  int temp = 0 , mpi_version_len = 0;
-
-  MPI_Get_library_version(mpi_version,&mpi_version_len);
-  printf("MPI version: %s\n",mpi_version);
-
+  struct timespec time_start, time_end; 
 
   clock_gettime(CLOCK_MONOTONIC, &time_start);
   MPI_Init(&argc,&argv);
   clock_gettime(CLOCK_MONOTONIC, &time_end);
-  printf("MPI_Init: %i.%i\n",diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
-
   // Get the number of processes
   int world_size;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
   int world_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  if (world_rank == 0 ) {
+    int mpi_version_len = 0;
+    char mpi_version[MPI_MAX_LIBRARY_VERSION_STRING];
+    MPI_Get_library_version(mpi_version,&mpi_version_len);
+    printf("# MPI version: %s\n",mpi_version);
+    printf("# Nr of processors are: %i\n",world_size);
+  }
+
+
+  printf("MPI_Init: %li.%li\n",diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
+
 
   // Get the name of the processor
   char processor_name[MPI_MAX_PROCESSOR_NAME];
@@ -50,6 +54,6 @@ int main(int argc, char** argv) {
   clock_gettime(CLOCK_MONOTONIC, &time_start);
   MPI_Finalize();
   clock_gettime(CLOCK_MONOTONIC, &time_end);
-  printf("MPI_Finalize: %i.%i\n",diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
+  printf("MPI_Finalize: %li.%li\n",diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
   return 0;
 }
