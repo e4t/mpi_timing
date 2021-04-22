@@ -34,8 +34,7 @@ int main(int argc, char** argv) {
   MPI_Get_processor_name(processor_name, &name_len);
 
   /* start with time which was needed for init and some more general information*/
-  long* send_bf_init;
-  send_bf_init = malloc(2*sizeof(long));
+  long* send_bf_init = malloc(2*sizeof(long));
   send_bf_init[0] = diff(time_start,time_end).tv_sec; send_bf_init[1] = diff(time_start,time_end).tv_nsec;
   if (world_rank == 0 ) {
     int mpi_version_len = 0;
@@ -44,14 +43,22 @@ int main(int argc, char** argv) {
     printf("# MPI version: %s\n",mpi_version);
     printf("# Nr of processors are: %i\n",world_size);
     long *recv_bf_init = malloc(2*world_size*sizeof(long));
-    MPI_Gather(send_bf_init,2,MPI_LONG,recv_bf_init,2,MPI_LONG,0,MPI_COMM_WORLD);
+    char *recv_bf_proc = malloc(world_size*sizeof(char)*MPI_MAX_PROCESSOR_NAME);
+    MPI_Gather(send_bf_init,2,MPI_LONG,
+        recv_bf_init,2,MPI_LONG,0,MPI_COMM_WORLD);
+    MPI_Gather(processor_name,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,
+        recv_bf_proc,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,0,MPI_COMM_WORLD);
     printf("# MPI_Init times for ranks\n");
     for(unsigned int i = 0; i < (unsigned int) world_size; i++) {
       printf("%i %lu.%lu\n",i,recv_bf_init[2*i],recv_bf_init[2*i+1]);
+      printf("proc_string: %s\n",&recv_bf_proc[MPI_MAX_PROCESSOR_NAME*i]);
     }
+
     free(recv_bf_init);
+    free(recv_bf_proc);
   } else {
     MPI_Gather(send_bf_init,2,MPI_LONG,NULL,2,MPI_LONG,0,MPI_COMM_WORLD);
+    MPI_Gather(processor_name,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,NULL,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,0,MPI_COMM_WORLD);
   }
   free(send_bf_init);
   clock_gettime(CLOCK_MONOTONIC, &time_start);
