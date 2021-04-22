@@ -1,7 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
-#include <unistd.h>
-#include <math.h>
+
 #include <mpi.h>
 
 
@@ -29,31 +29,34 @@ int main(int argc, char** argv) {
 
   int world_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  char processor_name[MPI_MAX_PROCESSOR_NAME];
+  int name_len;
+  MPI_Get_processor_name(processor_name, &name_len);
 
+  /* start with time which was needed for init and some more general information*/
+  long* send_bf_init;
+  send_bf_init = malloc(2*sizeof(long));
+  send_bf_init[0] = diff(time_start,time_end).tv_sec; send_bf_init[1] = diff(time_start,time_end).tv_nsec;
   if (world_rank == 0 ) {
     int mpi_version_len = 0;
     char mpi_version[MPI_MAX_LIBRARY_VERSION_STRING];
     MPI_Get_library_version(mpi_version,&mpi_version_len);
     printf("# MPI version: %s\n",mpi_version);
     printf("# Nr of processors are: %i\n",world_size);
+    long *recv_bf_init = malloc(2*world_size*sizeof(long));
+    MPI_Gather(send_bf_init,2,MPI_LONG,recv_bf_init,2,MPI_LONG,0,MPI_COMM_WORLD);
+    printf("# MPI_Init times for ranks\n");
+    for(unsigned int i = 0; i < (unsigned int) world_size; i++) {
+      printf("%i %lu.%lu\n",i,recv_bf_init[2*i],recv_bf_init[2*i+1]);
+    }
+    free(recv_bf_init);
+  } else {
+    MPI_Gather(send_bf_init,2,MPI_LONG,NULL,2,MPI_LONG,0,MPI_COMM_WORLD);
   }
-
-
-  printf("MPI_Init: %li.%li\n",diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
-
-
-  // Get the name of the processor
-  char processor_name[MPI_MAX_PROCESSOR_NAME];
-  int name_len;
-  MPI_Get_processor_name(processor_name, &name_len);
-
-  // Print off a hello world message
-  printf("Hello world from processor %s, rank %d out of %d processors\n",
-         processor_name, world_rank, world_size);
-
+  free(send_bf_init);
   clock_gettime(CLOCK_MONOTONIC, &time_start);
   MPI_Finalize();
   clock_gettime(CLOCK_MONOTONIC, &time_end);
-  printf("MPI_Finalize: %li.%li\n",diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
+  printf("# MPI_Finalize[%i]: %li.%li\n",world_rank,diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
   return 0;
 }
