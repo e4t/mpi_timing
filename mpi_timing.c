@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
+#include <unistd.h>
 
 #include <mpi.h>
+#include "mpi_timing.h"
 
+static unsigned int fill_random = 0;
 
 struct timespec diff(struct timespec start,struct timespec end) {
     struct timespec temp;
@@ -17,8 +21,36 @@ struct timespec diff(struct timespec start,struct timespec end) {
     return temp;
 }
 
+void usage() {
+  printf("\tUsage: mpi_init [-rh]\n");
+  printf("\tperform small MPI timing test\n");
+  printf("\t-h print this help\n");
+  printf("\t-r initialize data with (pseudo) random values\n");
+  printf("\n");
+  exit(EXIT_SUCCESS);
+}
+
+void parse_cmdline(int *argc,char*** argv) {
+  int opt = 0;
+  while((opt = getopt(*argc,*argv,"rh")) != -1 ) {
+    switch(opt) {
+      case 'r':
+        fill_random = 1;
+        break;
+      case 'h':
+        usage();
+        break;
+    }
+  }
+  exit(EXIT_SUCCESS);
+}
+void round_trip() {
+  printf("to be implemented\n");
+}
+
 int main(int argc, char** argv) {
   struct timespec time_start, time_end; 
+  parse_cmdline(&argc,&argv);
 
   clock_gettime(CLOCK_MONOTONIC, &time_start);
   MPI_Init(&argc,&argv);
@@ -46,12 +78,26 @@ int main(int argc, char** argv) {
     char *recv_bf_proc = malloc(world_size*sizeof(char)*MPI_MAX_PROCESSOR_NAME);
     MPI_Gather(send_bf_init,2,MPI_LONG,
         recv_bf_init,2,MPI_LONG,0,MPI_COMM_WORLD);
+    /* get the processor (node) names and print them out */
     MPI_Gather(processor_name,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,
         recv_bf_proc,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,0,MPI_COMM_WORLD);
+    for(unsigned int i = 0; i < (unsigned int) world_size; i++) {
+      char temp_str[MPI_MAX_PROCESSOR_NAME];
+      strncpy(temp_str,&recv_bf_proc[MPI_MAX_PROCESSOR_NAME*i],MPI_MAX_PROCESSOR_NAME);
+      if(strlen(temp_str) > 0) {
+        printf("# %s:",temp_str);
+        for(unsigned int j = i; j < (unsigned int) world_size; j++) {
+          if(strcmp(temp_str,&recv_bf_proc[MPI_MAX_PROCESSOR_NAME*j])== 0) {
+            printf(" %i",j);
+            memset(&recv_bf_proc[MPI_MAX_PROCESSOR_NAME*j],'\0',MPI_MAX_PROCESSOR_NAME);
+          }
+        }
+        printf("\n");
+      }
+    }
     printf("# MPI_Init times for ranks\n");
     for(unsigned int i = 0; i < (unsigned int) world_size; i++) {
       printf("%i %lu.%lu\n",i,recv_bf_init[2*i],recv_bf_init[2*i+1]);
-      printf("proc_string: %s\n",&recv_bf_proc[MPI_MAX_PROCESSOR_NAME*i]);
     }
 
     free(recv_bf_init);
@@ -61,9 +107,12 @@ int main(int argc, char** argv) {
     MPI_Gather(processor_name,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,NULL,MPI_MAX_PROCESSOR_NAME,MPI_CHAR,0,MPI_COMM_WORLD);
   }
   free(send_bf_init);
+
+
+
   clock_gettime(CLOCK_MONOTONIC, &time_start);
   MPI_Finalize();
   clock_gettime(CLOCK_MONOTONIC, &time_end);
   printf("# MPI_Finalize[%i]: %li.%li\n",world_rank,diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
-  return 0;
+  exit(EXIT_SUCCESS);
 }
