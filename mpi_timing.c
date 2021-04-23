@@ -7,7 +7,11 @@
 #include <mpi.h>
 #include "mpi_timing.h"
 
+
 static unsigned int fill_random = 0;
+static int nr_runs = 10;
+static int world_rank = 0;
+static int world_size = 0;
 
 struct timespec diff(struct timespec start,struct timespec end) {
     struct timespec temp;
@@ -26,13 +30,16 @@ void usage() {
   printf("\tperform small MPI timing test\n");
   printf("\t-h print this help\n");
   printf("\t-r initialize data with (pseudo) random values\n");
+  printf("\t-s SEED set random seed\n");
+  printf("\t-t TIMES how many times to run the test, default is %i\n",nr_runs);
   printf("\n");
   exit(EXIT_SUCCESS);
 }
 
 void parse_cmdline(int *argc,char*** argv) {
   int opt = 0;
-  while((opt = getopt(*argc,*argv,"rh")) != -1 ) {
+  srand(42);
+  while((opt = getopt(*argc,*argv,"rhs:t:")) != -1 ) {
     switch(opt) {
       case 'r':
         fill_random = 1;
@@ -40,26 +47,67 @@ void parse_cmdline(int *argc,char*** argv) {
       case 'h':
         usage();
         break;
+      case 's':
+        srand(atoi(optarg));
+        break;
+      case 't':
+        nr_runs = (atoi(optarg));
+        break;
     }
   }
-  exit(EXIT_SUCCESS);
 }
-void round_trip() {
-  printf("to be implemented\n");
+
+void round_trip(const unsigned int msg_size,struct timespec *snd_time, struct timespec *rcv_time) {
+  int * data = calloc(msg_size,sizeof(int));
+  int msg_id = 0;
+  struct timespec time_start, time_end; 
+  if(world_rank != 0) {
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    MPI_Recv(data,msg_size,MPI_INT,
+        world_rank - 1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    *rcv_time = diff(time_start,time_end);
+    /*
+    printf("# Got following data:");
+    for(unsigned int i = 0; i < msg_size;i++)
+      printf(" %i",data[i]);
+    printf("\n");
+    */
+
+  } else {
+    if(fill_random) {
+      for(unsigned int i = 0; i < msg_size; i++) {
+        data[i] = rand();
+      }
+    }
+  }
+  clock_gettime(CLOCK_MONOTONIC, &time_start);
+  MPI_Send(data,msg_size,MPI_INT,
+      (world_rank + 1) % world_size,msg_id,MPI_COMM_WORLD);
+  clock_gettime(CLOCK_MONOTONIC, &time_end);
+  *snd_time = diff(time_start,time_end);
+  if(world_rank == 0) {
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    MPI_Recv(data,msg_size,MPI_INT,
+        world_size-1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    *rcv_time = diff(time_start,time_end);
+  }
+
+  free(data);
 }
 
 int main(int argc, char** argv) {
   struct timespec time_start, time_end; 
   parse_cmdline(&argc,&argv);
 
+
   clock_gettime(CLOCK_MONOTONIC, &time_start);
   MPI_Init(&argc,&argv);
   clock_gettime(CLOCK_MONOTONIC, &time_end);
   // Get the number of processes
-  int world_size;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-  int world_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   char processor_name[MPI_MAX_PROCESSOR_NAME];
   int name_len;
@@ -108,6 +156,9 @@ int main(int argc, char** argv) {
   }
   free(send_bf_init);
 
+  for(int i = 0; i < nr_runs; i++) {
+    round_trip(256,&time_start,&time_end);
+  }
 
 
   clock_gettime(CLOCK_MONOTONIC, &time_start);
