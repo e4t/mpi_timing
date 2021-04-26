@@ -1,11 +1,34 @@
+/*
+ * Copyright (C) 2021 SUSE
+ *
+ * This file is part of mpi_timing.
+ *
+ * Tlog is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * mpi_timing is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with tlog; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include <mpi.h>
 #include "mpi_timing.h"
+#include "tlog/timespec.h"
 
 
 static unsigned int fill_random = 0;
@@ -13,17 +36,7 @@ static int nr_runs = 10;
 static int world_rank = 0;
 static int world_size = 0;
 
-struct timespec diff(struct timespec start,struct timespec end) {
-    struct timespec temp;
-    if ((end.tv_nsec-start.tv_nsec)<0) {
-        temp.tv_sec = end.tv_sec-start.tv_sec-1;
-        temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
-    } else {
-        temp.tv_sec = end.tv_sec-start.tv_sec;
-        temp.tv_nsec = end.tv_nsec-start.tv_nsec;
-    }
-    return temp;
-}
+
 
 void usage() {
   printf("\tUsage: mpi_init [-rh]\n");
@@ -66,7 +79,7 @@ void round_trip(const unsigned int msg_size,struct timespec *snd_time, struct ti
     MPI_Recv(data,msg_size,MPI_INT,
         world_rank - 1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     clock_gettime(CLOCK_MONOTONIC, &time_end);
-    *rcv_time = diff(time_start,time_end);
+    tlog_timespec_sub(&time_end,&time_start,rcv_time);
     /*
     printf("# Got following data:");
     for(unsigned int i = 0; i < msg_size;i++)
@@ -85,20 +98,20 @@ void round_trip(const unsigned int msg_size,struct timespec *snd_time, struct ti
   MPI_Send(data,msg_size,MPI_INT,
       (world_rank + 1) % world_size,msg_id,MPI_COMM_WORLD);
   clock_gettime(CLOCK_MONOTONIC, &time_end);
-  *snd_time = diff(time_start,time_end);
+  tlog_timespec_sub(&time_end,&time_start,snd_time );
   if(world_rank == 0) {
     clock_gettime(CLOCK_MONOTONIC, &time_start);
     MPI_Recv(data,msg_size,MPI_INT,
         world_size-1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     clock_gettime(CLOCK_MONOTONIC, &time_end);
-    *rcv_time = diff(time_start,time_end);
+    tlog_timespec_sub(&time_end,&time_start,rcv_time);
   }
 
   free(data);
 }
 
 int main(int argc, char** argv) {
-  struct timespec time_start, time_end; 
+  struct timespec time_start, time_end, time_diff; 
   parse_cmdline(&argc,&argv);
 
 
@@ -115,7 +128,9 @@ int main(int argc, char** argv) {
 
   /* start with time which was needed for init and some more general information*/
   long* send_bf_init = malloc(2*sizeof(long));
-  send_bf_init[0] = diff(time_start,time_end).tv_sec; send_bf_init[1] = diff(time_start,time_end).tv_nsec;
+  tlog_timespec_sub(&time_end,&time_start,&time_diff);
+  send_bf_init[0] = time_diff.tv_sec; 
+  send_bf_init[1] = time_diff.tv_nsec;
   if (world_rank == 0 ) {
     int mpi_version_len = 0;
     char mpi_version[MPI_MAX_LIBRARY_VERSION_STRING];
@@ -156,14 +171,23 @@ int main(int argc, char** argv) {
   }
   free(send_bf_init);
 
+  /* we store min,max,mean,std_err */
+  double *times_snd = calloc(nr_runs*2,sizeof(double));
+  double *times_rcv = calloc(nr_runs*2,sizeof(double));
   for(int i = 0; i < nr_runs; i++) {
-    round_trip(256,&time_start,&time_end);
+    /* now start with the ring test */
+    struct timespec time_rcv, time_snd; 
+    round_trip(256,&time_rcv,&time_snd);
+    times_snd[i] = tlog_timespec_to_fp(&time_snd);
+    times_rcv[i] = tlog_timespec_to_fp(&time_rcv);
+    printf("%g <-> %g\n",times_rcv[i],times_snd[i]);
   }
 
 
   clock_gettime(CLOCK_MONOTONIC, &time_start);
   MPI_Finalize();
   clock_gettime(CLOCK_MONOTONIC, &time_end);
-  printf("# MPI_Finalize[%i]: %li.%li\n",world_rank,diff(time_start,time_end).tv_sec,diff(time_start,time_end).tv_nsec);
+  tlog_timespec_sub(&time_end,&time_start,&time_diff);
+  printf("# MPI_Finalize[%i]: %li.%li\n",world_rank,time_diff.tv_sec,time_diff.tv_nsec);
   exit(EXIT_SUCCESS);
 }
