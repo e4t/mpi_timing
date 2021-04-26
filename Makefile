@@ -17,5 +17,8 @@ mpi_timing: mpi_timing.o timespec.o
 
 .PHONY:
 
+archive:
+	tar --transform="s,^,mpi_timing/," -cjf mpi_timing.tar.bz2 mpi_timing.c Makefile tlog/
+
 clean:
 	@rm -fv mpi_timing mpi_timing.o timespec.o
