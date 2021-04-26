@@ -1,12 +1,12 @@
 CFLAGS += 
 WARNINGS += -Wall -Wextra
 LDFLAGS =
-LIBRARIES = -lm
+LIBRARIES = -lm -lgslcblas -lgsl
 INCLUDES += -I./
 
 all: mpi_timing
 
-mpi_timing.o: mpi_timing.c mpi_timing.h
+mpi_timing.o: mpi_timing.c
 	mpicc -c -o mpi_timing.o mpi_timing.c $(WARNINGS) $(INCLUDES)
 
 timespec.o: tlog/timespec.c $(wildcard tlog/*h)
@@ -15,9 +15,7 @@ timespec.o: tlog/timespec.c $(wildcard tlog/*h)
 mpi_timing: mpi_timing.o timespec.o
 	mpicc -o mpi_timing  mpi_timing.o timespec.o $(LDFLAGS) $(LIBRARIES)
 
-
-
 .PHONY:
 
 clean:
-	@rm -fv mpi_timing mpi_timing.o
+	@rm -fv mpi_timing mpi_timing.o timespec.o

@@ -27,15 +27,31 @@
 #include <assert.h>
 
 #include <mpi.h>
-#include "mpi_timing.h"
+
+#include <gsl/gsl_statistics.h>
+
 #include "tlog/timespec.h"
 
 
 static unsigned int fill_random = 0;
-static int nr_runs = 10;
+static int nr_runs = 1000;
 static int world_rank = 0;
 static int world_size = 0;
 
+int int_pow(int base, int exp) {
+    int result = 1;
+    for (;;)
+    {
+        if (exp & 1)
+            result *= base;
+        exp >>= 1;
+        if (!exp)
+            break;
+        base *= base;
+    }
+
+    return result;
+}
 
 
 void usage() {
@@ -160,7 +176,7 @@ int main(int argc, char** argv) {
     }
     printf("# MPI_Init times for ranks\n");
     for(unsigned int i = 0; i < (unsigned int) world_size; i++) {
-      printf("%i %lu.%lu\n",i,recv_bf_init[2*i],recv_bf_init[2*i+1]);
+      printf("# %lu.%lu\n",recv_bf_init[2*i],recv_bf_init[2*i+1]);
     }
 
     free(recv_bf_init);
@@ -171,17 +187,40 @@ int main(int argc, char** argv) {
   }
   free(send_bf_init);
 
-  /* we store min,max,mean,std_err */
-  double *times_snd = calloc(nr_runs*2,sizeof(double));
-  double *times_rcv = calloc(nr_runs*2,sizeof(double));
-  for(int i = 0; i < nr_runs; i++) {
-    /* now start with the ring test */
-    struct timespec time_rcv, time_snd; 
-    round_trip(256,&time_rcv,&time_snd);
-    times_snd[i] = tlog_timespec_to_fp(&time_snd);
-    times_rcv[i] = tlog_timespec_to_fp(&time_rcv);
-    printf("%g <-> %g\n",times_rcv[i],times_snd[i]);
+  for(unsigned int j = 4; j < 16; j++) {
+    unsigned int pkg_size = int_pow(2,j);
+    double *times_snd = calloc(nr_runs,sizeof(double));
+    double *times_rcv = calloc(nr_runs,sizeof(double));
+    for(int j = 0; j < nr_runs; j++) {
+      /* now start with the ring test */
+      struct timespec time_rcv, time_snd; 
+      round_trip(pkg_size,&time_rcv,&time_snd);
+      times_snd[j] = tlog_timespec_to_fp(&time_snd);
+      times_rcv[j] = tlog_timespec_to_fp(&time_rcv);
+    }
+    double send_bf[10] = {
+        gsl_stats_max(times_snd,1,nr_runs),gsl_stats_min(times_snd,1,nr_runs),
+        gsl_stats_mean(times_snd,1,nr_runs),gsl_stats_median(times_snd,1,nr_runs),
+        gsl_stats_variance(times_snd,1,nr_runs),
+        gsl_stats_max(times_rcv,1,nr_runs),gsl_stats_min(times_rcv,1,nr_runs),
+        gsl_stats_mean(times_rcv,1,nr_runs),gsl_stats_median(times_rcv,1,nr_runs),
+        gsl_stats_variance(times_rcv,1,nr_runs) };
+    if (world_rank == 0 ) {
+      double *recv_bf = malloc(world_size * 10 * sizeof(double));
+      clock_gettime(CLOCK_MONOTONIC, &time_start);
+      MPI_Gather(send_bf,10,MPI_DOUBLE,recv_bf,10,MPI_DOUBLE,0,MPI_COMM_WORLD);
+      clock_gettime(CLOCK_MONOTONIC, &time_end);
+      tlog_timespec_sub(&time_end,&time_start,&time_diff);
+      printf("# Time for gather %lu.%lu\n",time_diff.tv_sec,time_diff.tv_nsec);
+      printf("%i %g %g %g %g %g %g %g %g %g %g \n",pkg_size,
+          recv_bf[0],recv_bf[1],recv_bf[2],recv_bf[3],recv_bf[4],
+          recv_bf[5],recv_bf[6],recv_bf[7],recv_bf[8],recv_bf[9]);
+      free(recv_bf);
+    } else {
+      MPI_Gather(send_bf,10,MPI_DOUBLE,NULL,2,MPI_LONG,0,MPI_COMM_WORLD);
+    }
   }
+
 
 
   clock_gettime(CLOCK_MONOTONIC, &time_start);
