@@ -187,8 +187,16 @@ int main(int argc, char** argv) {
   }
   free(send_bf_init);
 
-  for(unsigned int j = 4; j < 16; j++) {
-    unsigned int pkg_size = int_pow(2,j);
+  unsigned int pkg_size = 2;
+  for(unsigned int j = 4; j < 16;) {
+    /* not only package size of 2 4 8, but 2 3 4 6 8 ... */
+      if(pkg_size < int_pow(2,j) ) {
+        pkg_size = int_pow(2,j);
+      } else {
+        pkg_size += int_pow(2,j+1); 
+        pkg_size /= 2;
+        j++;
+    }
     double *times_snd = calloc(nr_runs,sizeof(double));
     double *times_rcv = calloc(nr_runs,sizeof(double));
     for(int j = 0; j < nr_runs; j++) {
