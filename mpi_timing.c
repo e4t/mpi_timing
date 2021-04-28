@@ -188,9 +188,9 @@ int main(int argc, char** argv) {
   free(send_bf_init);
 
   unsigned int pkg_size = 2;
-  for(unsigned int j = 4; j < 16;) {
+  for(unsigned int j = 4; j <= 14;) {
     /* not only package size of 2 4 8, but 2 3 4 6 8 ... */
-      if(pkg_size < int_pow(2,j) ) {
+      if(pkg_size <(unsigned int) int_pow(2,j) ) {
         pkg_size = int_pow(2,j);
       } else {
         pkg_size += int_pow(2,j+1); 
