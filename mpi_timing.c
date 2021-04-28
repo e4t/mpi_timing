@@ -29,6 +29,7 @@
 #include <mpi.h>
 
 #include <gsl/gsl_statistics.h>
+#include <gsl/gsl_sort.h>
 
 #include "tlog/timespec.h"
 
@@ -89,7 +90,7 @@ void parse_cmdline(int *argc,char*** argv) {
 void round_trip(const unsigned int msg_size,struct timespec *snd_time, struct timespec *rcv_time) {
   int * data = calloc(msg_size,sizeof(int));
   int msg_id = 0;
-  struct timespec time_start, time_end; 
+  struct timespec time_start, time_end;
   if(world_rank != 0) {
     clock_gettime(CLOCK_MONOTONIC, &time_start);
     MPI_Recv(data,msg_size,MPI_INT,
@@ -127,10 +128,10 @@ void round_trip(const unsigned int msg_size,struct timespec *snd_time, struct ti
 }
 
 int main(int argc, char** argv) {
-  struct timespec time_start, time_end, time_diff; 
+  struct timespec time_start, time_end, time_diff, time_gl_start, time_gl_end,time_gl_diff; 
   parse_cmdline(&argc,&argv);
 
-
+  clock_gettime(CLOCK_MONOTONIC, &time_gl_start);
   clock_gettime(CLOCK_MONOTONIC, &time_start);
   MPI_Init(&argc,&argv);
   clock_gettime(CLOCK_MONOTONIC, &time_end);
@@ -206,12 +207,13 @@ int main(int argc, char** argv) {
       times_snd[j] = tlog_timespec_to_fp(&time_snd);
       times_rcv[j] = tlog_timespec_to_fp(&time_rcv);
     }
+    gsl_sort(times_snd,1,nr_runs); gsl_sort(times_rcv,1,nr_runs);
     double send_bf[10] = {
         gsl_stats_max(times_snd,1,nr_runs),gsl_stats_min(times_snd,1,nr_runs),
-        gsl_stats_mean(times_snd,1,nr_runs),gsl_stats_median(times_snd,1,nr_runs),
+        gsl_stats_mean(times_snd,1,nr_runs),gsl_stats_median_from_sorted_data(times_snd,1,nr_runs),
         gsl_stats_variance(times_snd,1,nr_runs),
         gsl_stats_max(times_rcv,1,nr_runs),gsl_stats_min(times_rcv,1,nr_runs),
-        gsl_stats_mean(times_rcv,1,nr_runs),gsl_stats_median(times_rcv,1,nr_runs),
+        gsl_stats_mean(times_rcv,1,nr_runs),gsl_stats_median_from_sorted_data(times_rcv,1,nr_runs),
         gsl_stats_variance(times_rcv,1,nr_runs) };
     if (world_rank == 0 ) {
       double *recv_bf = malloc(world_size * 10 * sizeof(double));
@@ -236,5 +238,8 @@ int main(int argc, char** argv) {
   clock_gettime(CLOCK_MONOTONIC, &time_end);
   tlog_timespec_sub(&time_end,&time_start,&time_diff);
   printf("# MPI_Finalize[%i]: %li.%li\n",world_rank,time_diff.tv_sec,time_diff.tv_nsec);
+  clock_gettime(CLOCK_MONOTONIC, &time_gl_end);
+  tlog_timespec_sub(&time_gl_end,&time_gl_start,&time_gl_diff);
+  printf("# Total run time [%i]: %li.%li\n",world_rank,time_gl_diff.tv_sec,time_gl_diff.tv_nsec);
   exit(EXIT_SUCCESS);
 }
