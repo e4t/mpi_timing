@@ -17,7 +17,11 @@
  * along with tlog; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+#define MAGIC_START 232323
+#define MAGIC_END   424242
+#define MAGIC_ID    123123
 
+#define MAX_STR_SIZE;
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,8 +38,6 @@
 #include "tlog/timespec.h"
 
 
-static unsigned int fill_random = 0;
-static int nr_runs = 1000;
 static int world_rank = 0;
 static int world_size = 0;
 
@@ -54,42 +56,56 @@ int int_pow(int base, int exp) {
     return result;
 }
 
+struct settings {
+  unsigned int nr_runs;
+  unsigned fill_random;
+  char[MAX_STR_SIZE] mode;
+};
 
-void usage() {
-  printf("\tUsage: mpi_init [-rh]\n");
+void usage(struct settings mysettings) {
+  printf("\tUsage: mpi_init [-rh] MODE\n");
   printf("\tperform small MPI timing test\n");
   printf("\t-h print this help\n");
   printf("\t-r initialize data with (pseudo) random values\n");
   printf("\t-s SEED set random seed\n");
-  printf("\t-t TIMES how many times to run the test, default is %i\n",nr_runs);
+  printf("\t-t TIMES how many times to run the test, default is %i\n",mysettings.nr_runs);
+  printf("\tMODE can be 'round_trip' or 'round_trip_msg_size'\n");
   printf("\n");
   exit(EXIT_SUCCESS);
 }
 
-void parse_cmdline(int *argc,char*** argv) {
+struct settings = parse_cmdline(int *argc,char*** argv) {
+  struct settings mysettings;
+  mysettings.nr_runs = 1000;
+  mysettings.fill_random = 0;
   int opt = 0;
   srand(42);
   while((opt = getopt(*argc,*argv,"rhs:t:")) != -1 ) {
     switch(opt) {
       case 'r':
-        fill_random = 1;
+        mysettings.fill_random = 1;
         break;
       case 'h':
-        usage();
+        usage(mysettings);
         break;
       case 's':
         srand(atoi(optarg));
         break;
       case 't':
-        nr_runs = (atoi(optarg));
+        mysettings.nr_runs = (atoi(optarg));
         break;
     }
   }
+  return mysettings;
 }
 
-void round_trip(const unsigned int msg_size,struct timespec *snd_time, struct timespec *rcv_time) {
+void round_trip(const unsigned int msg_size,struct timespec *snd_time, 
+    struct timespec *rcv_time,int tag) {
+  assert(msg_size >= 3);
   int * data = calloc(msg_size,sizeof(int));
-  int msg_id = 0;
+  data[0] = MAGIC_START; data[msg_size] = MAGIC_END;
+  data[1] = tag;
+  int msg_id = MAGIC_ID;
   struct timespec time_start, time_end;
   if(world_rank != 0) {
     clock_gettime(CLOCK_MONOTONIC, &time_start);
@@ -97,16 +113,46 @@ void round_trip(const unsigned int msg_size,struct timespec *snd_time, struct ti
         world_rank - 1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     clock_gettime(CLOCK_MONOTONIC, &time_end);
     tlog_timespec_sub(&time_end,&time_start,rcv_time);
-    /*
-    printf("# Got following data:");
-    for(unsigned int i = 0; i < msg_size;i++)
-      printf(" %i",data[i]);
-    printf("\n");
-    */
-
   } else {
-    if(fill_random) {
-      for(unsigned int i = 0; i < msg_size; i++) {
+    if(tag == -1) {
+      for(unsigned int i = 2; i < msg_size-1; i++) {
+        data[i] = rand();
+      }
+    }
+  }
+  clock_gettime(CLOCK_MONOTONIC, &time_start);
+  MPI_Send(data,msg_size,MPI_INT,
+      (world_rank + 1) % world_size,msg_id,MPI_COMM_WORLD);
+  clock_gettime(CLOCK_MONOTONIC, &time_end);
+  tlog_timespec_sub(&time_end,&time_start,snd_time );
+  if(world_rank == 0) {
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    MPI_Recv(data,msg_size,MPI_INT,
+        world_size-1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    tlog_timespec_sub(&time_end,&time_start,rcv_time);
+  }
+
+  free(data);
+}
+
+void round_trip_msg_size(const unsigned int msg_size,struct timespec *snd_time, 
+    struct timespec *rcv_time,int tag) {
+  assert(msg_size >= 3);
+  int * data = calloc(msg_size,sizeof(int));
+  data[0] = MAGIC_START; data[msg_size] = MAGIC_END;
+  data[1] = tag;
+  int msg_id = MAGIC_ID;
+  struct timespec time_start, time_end;
+  if(world_rank != 0) {
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    MPI_Recv(data,msg_size,MPI_INT,
+        world_rank - 1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    tlog_timespec_sub(&time_end,&time_start,rcv_time);
+  } else {
+    if(tag == -1) {
+      for(unsigned int i = 2; i < msg_size-1; i++) {
         data[i] = rand();
       }
     }
@@ -189,21 +235,21 @@ int main(int argc, char** argv) {
   free(send_bf_init);
 
   unsigned int pkg_size = 2;
-  for(unsigned int j = 4; j <= 14;) {
+  for(unsigned int i = 4; i <= 14;) {
     /* not only package size of 2 4 8, but 2 3 4 6 8 ... */
-      if(pkg_size <(unsigned int) int_pow(2,j) ) {
-        pkg_size = int_pow(2,j);
+      if(pkg_size <(unsigned int) int_pow(2,i) ) {
+        pkg_size = int_pow(2,i);
       } else {
-        pkg_size += int_pow(2,j+1); 
+        pkg_size += int_pow(2,i+1); 
         pkg_size /= 2;
-        j++;
+        i++;
     }
     double *times_snd = calloc(nr_runs,sizeof(double));
     double *times_rcv = calloc(nr_runs,sizeof(double));
     for(int j = 0; j < nr_runs; j++) {
       /* now start with the ring test */
       struct timespec time_rcv, time_snd; 
-      round_trip(pkg_size,&time_rcv,&time_snd);
+      round_trip(pkg_size,&time_rcv,&time_snd,i*nr_runs + j);
       times_snd[j] = tlog_timespec_to_fp(&time_snd);
       times_rcv[j] = tlog_timespec_to_fp(&time_rcv);
     }
