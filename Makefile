@@ -1,4 +1,4 @@
-CFLAGS +=  -std=gnu99
+CFLAGS +=  -std=gnu99 -ggdb
 WARNINGS += -Wall -Wextra
 LDFLAGS =
 LIBRARIES = -lm -lgslcblas -lgsl

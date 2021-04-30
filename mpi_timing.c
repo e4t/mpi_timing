@@ -83,6 +83,7 @@ struct settings parse_cmdline(int *argc,char*** argv) {
   struct settings mysettings;
   mysettings.nr_runs = 1000;
   mysettings.fill_random = 0;
+  mysettings.mode = round_trip;
   int opt = 0;
   srand(42);
   while((opt = getopt(*argc,*argv,"rhs:t:")) != -1 ) {
@@ -101,6 +102,12 @@ struct settings parse_cmdline(int *argc,char*** argv) {
         break;
     }
   }
+  for(; optind < *argc; optind++){ //when some extra arguments are passed
+    if (strcmp("round_trip",*argv[optind]) == 0) 
+      mysettings.mode = round_trip;
+    if (strcmp("round_trip_msg_size",*argv[optind]) == 0) 
+      mysettings.mode = round_trip_msg_size;
+  }
   return mysettings;
 }
 
@@ -108,7 +115,7 @@ void round_trip_func(const unsigned int msg_size,struct timespec *snd_time,
     struct timespec *rcv_time,int tag) {
   assert(msg_size >= 3);
   int * data = calloc(msg_size,sizeof(int));
-  data[0] = MAGIC_START; data[msg_size] = MAGIC_END;
+  data[0] = MAGIC_START; data[msg_size-1] = MAGIC_END;
   data[1] = tag;
   int msg_id = MAGIC_ID;
   struct timespec time_start, time_end;
@@ -142,14 +149,26 @@ void round_trip_func(const unsigned int msg_size,struct timespec *snd_time,
 }
 
 void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag) {
+    struct timespec *rcv_time,struct timespec* probe_time,int tag) {
   assert(msg_size >= 3);
   int * data = calloc(msg_size,sizeof(int));
-  data[0] = MAGIC_START; data[msg_size] = MAGIC_END;
+  data[0] = MAGIC_START; data[msg_size-1] = MAGIC_END;
   data[1] = tag;
-  int msg_id = MAGIC_ID;
-  struct timespec time_start, time_end;
+  int msg_id = MAGIC_ID, msg_size_status = 0;
+  MPI_Status status;
+  struct timespec time_start, time_end ;
   if(world_rank != 0) {
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    MPI_Probe(world_rank-1,msg_id,MPI_COMM_WORLD,&status);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    tlog_timespec_sub(&time_end,&time_start,probe_time);
+
+    MPI_Get_count(&status,MPI_INT,&msg_size_status);
+    if(msg_size_status != (int) msg_size) {
+      fprintf(stderr,"Messages sizes differs on rank %i: %i <-> %i\n",
+          world_rank,msg_size_status,msg_size);
+      exit(EXIT_FAILURE);
+    }
     clock_gettime(CLOCK_MONOTONIC, &time_start);
     MPI_Recv(data,msg_size,MPI_INT,
         world_rank - 1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -168,6 +187,18 @@ void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_t
   clock_gettime(CLOCK_MONOTONIC, &time_end);
   tlog_timespec_sub(&time_end,&time_start,snd_time );
   if(world_rank == 0) {
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    MPI_Probe(world_rank-1,msg_id,MPI_COMM_WORLD,&status);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    tlog_timespec_sub(&time_end,&time_start,probe_time);
+
+    MPI_Get_count(&status,MPI_INT,&msg_size_status);
+    if(msg_size_status != (int) msg_size) {
+      fprintf(stderr,"Messages sizes differs on rank %i: %i <-> %i\n",
+          world_rank,msg_size_status,msg_size);
+      exit(EXIT_FAILURE);
+    }
+
     clock_gettime(CLOCK_MONOTONIC, &time_start);
     MPI_Recv(data,msg_size,MPI_INT,
         world_size-1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -239,7 +270,7 @@ int main(int argc, char** argv) {
   }
   free(send_bf_init);
 
-  unsigned int pkg_size = 2;
+  unsigned int pkg_size = 2, msg_count = 0;
   for(unsigned int i = 4; i <= 14;) {
     /* not only package size of 2 4 8, but 2 3 4 6 8 ... */
       if(pkg_size <(unsigned int) int_pow(2,i) ) {
@@ -251,33 +282,69 @@ int main(int argc, char** argv) {
     }
     double *times_snd = calloc(mysettings.nr_runs,sizeof(double));
     double *times_rcv = calloc(mysettings.nr_runs,sizeof(double));
+    double *times_prb = calloc(mysettings.nr_runs,sizeof(double));
     for(unsigned int j = 0; j < mysettings.nr_runs; j++) {
       /* now start with the ring test */
-      struct timespec time_rcv, time_snd; 
-      round_trip_func(pkg_size,&time_rcv,&time_snd,i*mysettings.nr_runs + j);
+      struct timespec time_rcv, time_snd, time_probe; 
+      time_probe.tv_sec = 0; time_probe.tv_nsec = 0;
+      switch(mysettings.mode) {
+        case round_trip:
+          round_trip_func(pkg_size,&time_snd,&time_rcv,msg_count);
+          msg_count++;
+          break;
+        case round_trip_msg_size:
+          round_trip_msg_size_func(pkg_size,&time_snd,&time_rcv,&time_probe,msg_count);
+          msg_count++;
+          break;
+        default:
+          fprintf(stderr,"Invalid mode selected\n");
+          exit(EXIT_FAILURE);
+
+      }
       times_snd[j] = tlog_timespec_to_fp(&time_snd);
       times_rcv[j] = tlog_timespec_to_fp(&time_rcv);
+      times_prb[j] = tlog_timespec_to_fp(&time_probe);
     }
     gsl_sort(times_snd,1,mysettings.nr_runs); gsl_sort(times_rcv,1,mysettings.nr_runs);
-    double send_bf[10] = {
+    double send_bf[15] = {
         gsl_stats_max(times_snd,1,mysettings.nr_runs),gsl_stats_min(times_snd,1,mysettings.nr_runs),
         gsl_stats_mean(times_snd,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_snd,1,mysettings.nr_runs),
         gsl_stats_variance(times_snd,1,mysettings.nr_runs),
         gsl_stats_max(times_rcv,1,mysettings.nr_runs),gsl_stats_min(times_rcv,1,mysettings.nr_runs),
         gsl_stats_mean(times_rcv,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_rcv,1,mysettings.nr_runs),
-        gsl_stats_variance(times_rcv,1,mysettings.nr_runs) };
+        gsl_stats_variance(times_rcv,1,mysettings.nr_runs),
+        gsl_stats_max(times_prb,1,mysettings.nr_runs),gsl_stats_min(times_prb,1,mysettings.nr_runs),
+        gsl_stats_mean(times_prb,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_prb,1,mysettings.nr_runs),
+        gsl_stats_variance(times_prb,1,mysettings.nr_runs) };
     if (world_rank == 0 ) {
-      double *recv_bf = malloc(world_size * 10 * sizeof(double));
+      double *recv_bf = malloc(world_size * 15 * sizeof(double));
       clock_gettime(CLOCK_MONOTONIC, &time_start);
-      MPI_Gather(send_bf,10,MPI_DOUBLE,recv_bf,10,MPI_DOUBLE,0,MPI_COMM_WORLD);
+      MPI_Gather(send_bf,15,MPI_DOUBLE,recv_bf,15,MPI_DOUBLE,0,MPI_COMM_WORLD);
       clock_gettime(CLOCK_MONOTONIC, &time_end);
       tlog_timespec_sub(&time_end,&time_start,&time_diff);
       printf("# Time for gather %lu.%lu\n",time_diff.tv_sec,time_diff.tv_nsec);
-      printf("%i %g %g %g %g %g %g %g %g %g %g \n",pkg_size,
-          recv_bf[0],recv_bf[1],recv_bf[2],recv_bf[3],recv_bf[4],
-          recv_bf[5],recv_bf[6],recv_bf[7],recv_bf[8],recv_bf[9]);
+      printf("%i",pkg_size);
+      printf(" %g %g %g %g %g",
+          gsl_stats_mean(&recv_bf[0],5,world_size),
+          gsl_stats_mean(&recv_bf[1],5,world_size),
+          gsl_stats_mean(&recv_bf[2],5,world_size),
+          gsl_stats_mean(&recv_bf[3],5,world_size),
+          gsl_stats_mean(&recv_bf[4],5,world_size));
+      printf(" %g %g %g %g %g",
+          gsl_stats_mean(&recv_bf[5],5,world_size),
+          gsl_stats_mean(&recv_bf[6],5,world_size),
+          gsl_stats_mean(&recv_bf[7],5,world_size),
+          gsl_stats_mean(&recv_bf[8],5,world_size),
+          gsl_stats_mean(&recv_bf[9],5,world_size));
+      printf(" %g %g %g %g %g",
+          gsl_stats_mean(&recv_bf[10],5,world_size),
+          gsl_stats_mean(&recv_bf[11],5,world_size),
+          gsl_stats_mean(&recv_bf[12],5,world_size),
+          gsl_stats_mean(&recv_bf[13],5,world_size),
+          gsl_stats_mean(&recv_bf[14],5,world_size));
+      printf("\n");
       free(recv_bf);
-    } else {
+    } else {             
       MPI_Gather(send_bf,10,MPI_DOUBLE,NULL,2,MPI_LONG,0,MPI_COMM_WORLD);
     }
   }
