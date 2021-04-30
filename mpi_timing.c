@@ -21,7 +21,7 @@
 #define MAGIC_END   424242
 #define MAGIC_ID    123123
 
-#define MAX_STR_SIZE;
+#define MAX_STR_SIZE 256;
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,10 +56,15 @@ int int_pow(int base, int exp) {
     return result;
 }
 
+enum run_mode {
+  round_trip,
+  round_trip_msg_size,
+};
+
 struct settings {
   unsigned int nr_runs;
   unsigned fill_random;
-  char[MAX_STR_SIZE] mode;
+  enum run_mode mode;
 };
 
 void usage(struct settings mysettings) {
@@ -74,7 +79,7 @@ void usage(struct settings mysettings) {
   exit(EXIT_SUCCESS);
 }
 
-struct settings = parse_cmdline(int *argc,char*** argv) {
+struct settings parse_cmdline(int *argc,char*** argv) {
   struct settings mysettings;
   mysettings.nr_runs = 1000;
   mysettings.fill_random = 0;
@@ -99,7 +104,7 @@ struct settings = parse_cmdline(int *argc,char*** argv) {
   return mysettings;
 }
 
-void round_trip(const unsigned int msg_size,struct timespec *snd_time, 
+void round_trip_func(const unsigned int msg_size,struct timespec *snd_time, 
     struct timespec *rcv_time,int tag) {
   assert(msg_size >= 3);
   int * data = calloc(msg_size,sizeof(int));
@@ -136,7 +141,7 @@ void round_trip(const unsigned int msg_size,struct timespec *snd_time,
   free(data);
 }
 
-void round_trip_msg_size(const unsigned int msg_size,struct timespec *snd_time, 
+void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_time, 
     struct timespec *rcv_time,int tag) {
   assert(msg_size >= 3);
   int * data = calloc(msg_size,sizeof(int));
@@ -175,7 +180,7 @@ void round_trip_msg_size(const unsigned int msg_size,struct timespec *snd_time,
 
 int main(int argc, char** argv) {
   struct timespec time_start, time_end, time_diff, time_gl_start, time_gl_end,time_gl_diff; 
-  parse_cmdline(&argc,&argv);
+  struct settings mysettings = parse_cmdline(&argc,&argv);
 
   clock_gettime(CLOCK_MONOTONIC, &time_gl_start);
   clock_gettime(CLOCK_MONOTONIC, &time_start);
@@ -244,23 +249,23 @@ int main(int argc, char** argv) {
         pkg_size /= 2;
         i++;
     }
-    double *times_snd = calloc(nr_runs,sizeof(double));
-    double *times_rcv = calloc(nr_runs,sizeof(double));
-    for(int j = 0; j < nr_runs; j++) {
+    double *times_snd = calloc(mysettings.nr_runs,sizeof(double));
+    double *times_rcv = calloc(mysettings.nr_runs,sizeof(double));
+    for(unsigned int j = 0; j < mysettings.nr_runs; j++) {
       /* now start with the ring test */
       struct timespec time_rcv, time_snd; 
-      round_trip(pkg_size,&time_rcv,&time_snd,i*nr_runs + j);
+      round_trip_func(pkg_size,&time_rcv,&time_snd,i*mysettings.nr_runs + j);
       times_snd[j] = tlog_timespec_to_fp(&time_snd);
       times_rcv[j] = tlog_timespec_to_fp(&time_rcv);
     }
-    gsl_sort(times_snd,1,nr_runs); gsl_sort(times_rcv,1,nr_runs);
+    gsl_sort(times_snd,1,mysettings.nr_runs); gsl_sort(times_rcv,1,mysettings.nr_runs);
     double send_bf[10] = {
-        gsl_stats_max(times_snd,1,nr_runs),gsl_stats_min(times_snd,1,nr_runs),
-        gsl_stats_mean(times_snd,1,nr_runs),gsl_stats_median_from_sorted_data(times_snd,1,nr_runs),
-        gsl_stats_variance(times_snd,1,nr_runs),
-        gsl_stats_max(times_rcv,1,nr_runs),gsl_stats_min(times_rcv,1,nr_runs),
-        gsl_stats_mean(times_rcv,1,nr_runs),gsl_stats_median_from_sorted_data(times_rcv,1,nr_runs),
-        gsl_stats_variance(times_rcv,1,nr_runs) };
+        gsl_stats_max(times_snd,1,mysettings.nr_runs),gsl_stats_min(times_snd,1,mysettings.nr_runs),
+        gsl_stats_mean(times_snd,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_snd,1,mysettings.nr_runs),
+        gsl_stats_variance(times_snd,1,mysettings.nr_runs),
+        gsl_stats_max(times_rcv,1,mysettings.nr_runs),gsl_stats_min(times_rcv,1,mysettings.nr_runs),
+        gsl_stats_mean(times_rcv,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_rcv,1,mysettings.nr_runs),
+        gsl_stats_variance(times_rcv,1,mysettings.nr_runs) };
     if (world_rank == 0 ) {
       double *recv_bf = malloc(world_size * 10 * sizeof(double));
       clock_gettime(CLOCK_MONOTONIC, &time_start);
