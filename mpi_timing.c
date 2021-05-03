@@ -79,14 +79,14 @@ void usage(struct settings mysettings) {
   exit(EXIT_SUCCESS);
 }
 
-struct settings parse_cmdline(int *argc,char*** argv) {
+struct settings parse_cmdline(int argc,char** argv) {
   struct settings mysettings;
   mysettings.nr_runs = 1000;
   mysettings.fill_random = 0;
   mysettings.mode = round_trip;
   int opt = 0;
   srand(42);
-  while((opt = getopt(*argc,*argv,"rhs:t:")) != -1 ) {
+  while((opt = getopt(argc,argv,"rhs:t:")) != -1 ) {
     switch(opt) {
       case 'r':
         mysettings.fill_random = 1;
@@ -102,10 +102,10 @@ struct settings parse_cmdline(int *argc,char*** argv) {
         break;
     }
   }
-  for(; optind < *argc; optind++){ //when some extra arguments are passed
-    if (strcmp("round_trip",*argv[optind]) == 0) 
+  for(; optind < argc; optind++){ //when some extra arguments are passed
+    if (strcmp("round_trip",argv[optind]) == 0) 
       mysettings.mode = round_trip;
-    if (strcmp("round_trip_msg_size",*argv[optind]) == 0) 
+    if (strcmp("round_trip_msg_size",argv[optind]) == 0) 
       mysettings.mode = round_trip_msg_size;
   }
   return mysettings;
@@ -188,7 +188,7 @@ void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_t
   tlog_timespec_sub(&time_end,&time_start,snd_time );
   if(world_rank == 0) {
     clock_gettime(CLOCK_MONOTONIC, &time_start);
-    MPI_Probe(world_rank-1,msg_id,MPI_COMM_WORLD,&status);
+    MPI_Probe(world_size-1,msg_id,MPI_COMM_WORLD,&status);
     clock_gettime(CLOCK_MONOTONIC, &time_end);
     tlog_timespec_sub(&time_end,&time_start,probe_time);
 
@@ -211,7 +211,7 @@ void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_t
 
 int main(int argc, char** argv) {
   struct timespec time_start, time_end, time_diff, time_gl_start, time_gl_end,time_gl_diff; 
-  struct settings mysettings = parse_cmdline(&argc,&argv);
+  struct settings mysettings = parse_cmdline(argc,argv);
 
   clock_gettime(CLOCK_MONOTONIC, &time_gl_start);
   clock_gettime(CLOCK_MONOTONIC, &time_start);
@@ -344,6 +344,10 @@ int main(int argc, char** argv) {
           gsl_stats_mean(&recv_bf[12],15,world_size),
           gsl_stats_mean(&recv_bf[13],15,world_size),
           gsl_stats_mean(&recv_bf[14],15,world_size));
+      printf(" %lu %lu %lu",
+          (gsl_stats_max_index(&recv_bf[2],15,world_size)),
+          (gsl_stats_max_index(&recv_bf[7],15,world_size)),
+          (gsl_stats_max_index(&recv_bf[11],15,world_size)));
       printf("\n");
       free(recv_bf);
     } else {             
