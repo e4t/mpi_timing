@@ -306,6 +306,7 @@ int main(int argc, char** argv) {
       times_prb[j] = tlog_timespec_to_fp(&time_probe);
     }
     gsl_sort(times_snd,1,mysettings.nr_runs); gsl_sort(times_rcv,1,mysettings.nr_runs);
+    gsl_sort(times_prb,1,mysettings.nr_runs);
     double send_bf[15] = {
         gsl_stats_max(times_snd,1,mysettings.nr_runs),gsl_stats_min(times_snd,1,mysettings.nr_runs),
         gsl_stats_mean(times_snd,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_snd,1,mysettings.nr_runs),
@@ -317,35 +318,36 @@ int main(int argc, char** argv) {
         gsl_stats_mean(times_prb,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_prb,1,mysettings.nr_runs),
         gsl_stats_variance(times_prb,1,mysettings.nr_runs) };
     if (world_rank == 0 ) {
-      double *recv_bf = malloc(world_size * 15 * sizeof(double));
+      double *recv_bf = calloc(world_size * 15,sizeof(double));
       clock_gettime(CLOCK_MONOTONIC, &time_start);
       MPI_Gather(send_bf,15,MPI_DOUBLE,recv_bf,15,MPI_DOUBLE,0,MPI_COMM_WORLD);
       clock_gettime(CLOCK_MONOTONIC, &time_end);
       tlog_timespec_sub(&time_end,&time_start,&time_diff);
+      printf("%i %g\n",world_rank,send_bf[12]);
       printf("# Time for gather %lu.%lu\n",time_diff.tv_sec,time_diff.tv_nsec);
       printf("%i",pkg_size);
       printf(" %g %g %g %g %g",
-          gsl_stats_mean(&recv_bf[0],5,world_size),
-          gsl_stats_mean(&recv_bf[1],5,world_size),
-          gsl_stats_mean(&recv_bf[2],5,world_size),
-          gsl_stats_mean(&recv_bf[3],5,world_size),
-          gsl_stats_mean(&recv_bf[4],5,world_size));
+          gsl_stats_mean(&recv_bf[0],15,world_size),
+          gsl_stats_mean(&recv_bf[1],15,world_size),
+          gsl_stats_mean(&recv_bf[2],15,world_size),
+          gsl_stats_mean(&recv_bf[3],15,world_size),
+          gsl_stats_mean(&recv_bf[4],15,world_size));
       printf(" %g %g %g %g %g",
-          gsl_stats_mean(&recv_bf[5],5,world_size),
-          gsl_stats_mean(&recv_bf[6],5,world_size),
-          gsl_stats_mean(&recv_bf[7],5,world_size),
-          gsl_stats_mean(&recv_bf[8],5,world_size),
-          gsl_stats_mean(&recv_bf[9],5,world_size));
+          gsl_stats_mean(&recv_bf[5],15,world_size),
+          gsl_stats_mean(&recv_bf[6],15,world_size),
+          gsl_stats_mean(&recv_bf[7],15,world_size),
+          gsl_stats_mean(&recv_bf[8],15,world_size),
+          gsl_stats_mean(&recv_bf[9],15,world_size));
       printf(" %g %g %g %g %g",
-          gsl_stats_mean(&recv_bf[10],5,world_size),
-          gsl_stats_mean(&recv_bf[11],5,world_size),
-          gsl_stats_mean(&recv_bf[12],5,world_size),
-          gsl_stats_mean(&recv_bf[13],5,world_size),
-          gsl_stats_mean(&recv_bf[14],5,world_size));
+          gsl_stats_mean(&recv_bf[10],15,world_size),
+          gsl_stats_mean(&recv_bf[11],15,world_size),
+          gsl_stats_mean(&recv_bf[12],15,world_size),
+          gsl_stats_mean(&recv_bf[13],15,world_size),
+          gsl_stats_mean(&recv_bf[14],15,world_size));
       printf("\n");
       free(recv_bf);
     } else {             
-      MPI_Gather(send_bf,10,MPI_DOUBLE,NULL,2,MPI_LONG,0,MPI_COMM_WORLD);
+      MPI_Gather(send_bf,15,MPI_DOUBLE,NULL,15,MPI_DOUBLE,0,MPI_COMM_WORLD);
     }
   }
 
