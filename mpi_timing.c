@@ -113,12 +113,14 @@ struct settings parse_cmdline(int argc,char** argv) {
   for(; optind < argc; optind++){ //when some extra arguments are passed
     if (strcmp("round_trip",argv[optind]) == 0) 
       mysettings.mode = round_trip;
-    if (strcmp("round_trip_msg_size",argv[optind]) == 0) 
+    else if (strcmp("round_trip_msg_size",argv[optind]) == 0) 
       mysettings.mode = round_trip_msg_size;
-    if (strcmp("round_trip_sync",argv[optind]) == 0) 
-      mysettings.mode = round_trip_wait;
-    if (strcmp("round_trip_wait",argv[optind]) == 0) 
+    else if (strcmp("round_trip_sync",argv[optind]) == 0) 
       mysettings.mode = round_trip_sync;
+    else if (strcmp("round_trip_wait",argv[optind]) == 0) 
+      mysettings.mode = round_trip_wait;
+    else
+      usage(mysettings);
   }
   return mysettings;
 }
