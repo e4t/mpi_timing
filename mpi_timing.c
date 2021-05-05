@@ -59,6 +59,8 @@ int int_pow(int base, int exp) {
 enum run_mode {
   round_trip,
   round_trip_msg_size,
+  round_trip_wait,
+  round_trip_sync,
 };
 
 struct settings {
@@ -74,7 +76,8 @@ void usage(struct settings mysettings) {
   printf("\t-r initialize data with (pseudo) random values\n");
   printf("\t-s SEED set random seed\n");
   printf("\t-t TIMES how many times to run the test, default is %i\n",mysettings.nr_runs);
-  printf("\tMODE can be 'round_trip' or 'round_trip_msg_size'\n");
+  printf("\t-w MSEC to wait after every round trip, default it %i\n",mysettings.wait);
+  printf("\tMODE can be 'round_trip', 'round_trip_msg_size', 'round_trip_wait' and\n\t'round_trip_sync'\n");
   printf("\n");
   exit(EXIT_SUCCESS);
 }
@@ -84,9 +87,10 @@ struct settings parse_cmdline(int argc,char** argv) {
   mysettings.nr_runs = 1000;
   mysettings.fill_random = 0;
   mysettings.mode = round_trip;
+  mysettings.wait = 20;
   int opt = 0;
   srand(42);
-  while((opt = getopt(argc,argv,"rhs:t:")) != -1 ) {
+  while((opt = getopt(argc,argv,"rhs:t:w:")) != -1 ) {
     switch(opt) {
       case 'r':
         mysettings.fill_random = 1;
@@ -100,6 +104,9 @@ struct settings parse_cmdline(int argc,char** argv) {
       case 't':
         mysettings.nr_runs = (atoi(optarg));
         break;
+      case 'w':
+        mysettings.wait = (atoi(optarg));
+        break;
     }
   }
   for(; optind < argc; optind++){ //when some extra arguments are passed
@@ -107,6 +114,10 @@ struct settings parse_cmdline(int argc,char** argv) {
       mysettings.mode = round_trip;
     if (strcmp("round_trip_msg_size",argv[optind]) == 0) 
       mysettings.mode = round_trip_msg_size;
+    if (strcmp("round_trip_sync",argv[optind]) == 0) 
+      mysettings.mode = round_trip_wait;
+    if (strcmp("round_trip_wait",argv[optind]) == 0) 
+      mysettings.mode = round_trip_sync;
   }
   return mysettings;
 }
@@ -146,6 +157,22 @@ void round_trip_func(const unsigned int msg_size,struct timespec *snd_time,
   }
 
   free(data);
+}
+
+void round_trip_sync_func(const unsigned int msg_size,struct timespec *snd_time, 
+    struct timespec *rcv_time,int tag) {
+  if(MPI_Barrier(MPI_COMM_WORLD) != MPI_SUCCESS) {
+    fprintf(stderr,"Barrier was not successfull on rank %i\n",world_rank);
+    MPI_Abort(MPI_COMM_WORLD);
+    exit(EXIT_FAILURE);
+  }
+  round_trip_func(msg_size,snd_time,rcv_time,tag);
+}
+
+void round_trip_wait_func(const unsigned int msg_size,struct timespec *snd_time, 
+    struct timespec *rcv_time,int tag,unsigned int wait) {
+  usleep(wait);
+  round_trip_func(msg_size,snd_time,rcv_time,tag);
 }
 
 void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_time, 
@@ -294,6 +321,15 @@ int main(int argc, char** argv) {
           break;
         case round_trip_msg_size:
           round_trip_msg_size_func(pkg_size,&time_snd,&time_rcv,&time_probe,msg_count);
+          msg_count++;
+          break;
+        case round_trip_sync:
+          round_trip_msg_size_sync_func(pkg_size,&time_snd,&time_rcv,&time_probe,msg_count);
+          msg_count++;
+          break;
+        case round_trip_wait:
+          round_trip_msg_size_sync_func(pkg_size,&time_snd,&time_rcv,&time_probe,msg_count
+              ,mysettings.wait_time);
           msg_count++;
           break;
         default:
