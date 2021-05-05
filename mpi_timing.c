@@ -327,20 +327,20 @@ int main(int argc, char** argv) {
       printf("# Time for gather %lu.%lu\n",time_diff.tv_sec,time_diff.tv_nsec);
       printf("%i",pkg_size);
       printf(" %g %g %g %g %g",
-          gsl_stats_mean(&recv_bf[0],15,world_size),
-          gsl_stats_mean(&recv_bf[1],15,world_size),
+          gsl_stats_max(&recv_bf[0],15,world_size),
+          gsl_stats_min(&recv_bf[1],15,world_size),
           gsl_stats_mean(&recv_bf[2],15,world_size),
           gsl_stats_mean(&recv_bf[3],15,world_size),
           gsl_stats_mean(&recv_bf[4],15,world_size));
       printf(" %g %g %g %g %g",
-          gsl_stats_mean(&recv_bf[5],15,world_size),
-          gsl_stats_mean(&recv_bf[6],15,world_size),
+          gsl_stats_max(&recv_bf[5],15,world_size),
+          gsl_stats_min(&recv_bf[6],15,world_size),
           gsl_stats_mean(&recv_bf[7],15,world_size),
           gsl_stats_mean(&recv_bf[8],15,world_size),
           gsl_stats_mean(&recv_bf[9],15,world_size));
       printf(" %g %g %g %g %g",
-          gsl_stats_mean(&recv_bf[10],15,world_size),
-          gsl_stats_mean(&recv_bf[11],15,world_size),
+          gsl_stats_max(&recv_bf[10],15,world_size),
+          gsl_stats_min(&recv_bf[11],15,world_size),
           gsl_stats_mean(&recv_bf[12],15,world_size),
           gsl_stats_mean(&recv_bf[13],15,world_size),
           gsl_stats_mean(&recv_bf[14],15,world_size));
