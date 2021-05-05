@@ -66,6 +66,7 @@ enum run_mode {
 struct settings {
   unsigned int nr_runs;
   unsigned fill_random;
+  unsigned wait;
   enum run_mode mode;
 };
 
@@ -163,7 +164,7 @@ void round_trip_sync_func(const unsigned int msg_size,struct timespec *snd_time,
     struct timespec *rcv_time,int tag) {
   if(MPI_Barrier(MPI_COMM_WORLD) != MPI_SUCCESS) {
     fprintf(stderr,"Barrier was not successfull on rank %i\n",world_rank);
-    MPI_Abort(MPI_COMM_WORLD);
+    MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);
     exit(EXIT_FAILURE);
   }
   round_trip_func(msg_size,snd_time,rcv_time,tag);
@@ -324,12 +325,11 @@ int main(int argc, char** argv) {
           msg_count++;
           break;
         case round_trip_sync:
-          round_trip_msg_size_sync_func(pkg_size,&time_snd,&time_rcv,&time_probe,msg_count);
+          round_trip_sync_func(pkg_size,&time_snd,&time_rcv,msg_count);
           msg_count++;
           break;
         case round_trip_wait:
-          round_trip_msg_size_sync_func(pkg_size,&time_snd,&time_rcv,&time_probe,msg_count
-              ,mysettings.wait_time);
+          round_trip_wait_func(pkg_size,&time_snd,&time_rcv,msg_count,mysettings.wait);
           msg_count++;
           break;
         default:
