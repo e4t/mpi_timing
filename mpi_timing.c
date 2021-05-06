@@ -58,6 +58,7 @@ enum run_mode {
   round_trip_msg_size,
   round_trip_wait,
   round_trip_sync,
+  send,
 };
 
 struct settings {
@@ -116,6 +117,8 @@ struct settings parse_cmdline(int argc,char** argv) {
       mysettings.mode = round_trip_sync;
     else if (strcmp("round_trip_wait",argv[optind]) == 0) 
       mysettings.mode = round_trip_wait;
+    else if (strcmp("send",argv[optind]) == 0) 
+      mysettings.mode = send;
     else
       usage(mysettings);
   }
@@ -215,6 +218,10 @@ int main(int argc, char** argv) {
           break;
         case round_trip_wait:
           round_trip_wait_func(pkg_size,&time_snd,&time_rcv,msg_count,mysettings.wait);
+          msg_count++;
+          break;
+        case send:
+          send_func(pkg_size,&time_snd,&time_rcv,msg_count);
           msg_count++;
           break;
         default:

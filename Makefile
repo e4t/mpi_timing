@@ -9,7 +9,7 @@ endif
 
 all: mpi_timing
 
-mpi_tests.o: mpi_tests.c
+mpi_tests.o: mpi_tests.c mpi_tests.h
 	$(MPICC) -c -o mpi_tests.o mpi_tests.c $(WARNINGS) $(INCLUDES) $(CFLAGS)
 
 mpi_timing.o: mpi_timing.c

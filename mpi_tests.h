@@ -21,4 +21,7 @@ void round_trip_wait_func(const unsigned int msg_size,struct timespec *snd_time,
 void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_time, 
     struct timespec *rcv_time,struct timespec* probe_time,int tag);
 
+void send_func(const unsigned int msg_size,struct timespec *snd_time, 
+    struct timespec *rcv_time,int tag);
+
 #endif

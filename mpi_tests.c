@@ -118,4 +118,32 @@ void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_t
   free(data);
 }
 
+void send_func(const unsigned int msg_size,struct timespec *snd_time, 
+    struct timespec *rcv_time,int tag) {
+  assert(msg_size >= 3);
+  int * data = calloc(msg_size,sizeof(int));
+  data[0] = MAGIC_START; data[msg_size-1] = MAGIC_END;
+  data[1] = tag;
+  int msg_id = MAGIC_ID;
+  struct timespec time_start, time_end;
+  if(world_rank % 2 != 0) {
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    MPI_Recv(data,msg_size,MPI_INT,
+        world_rank - 1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    tlog_timespec_sub(&time_end,&time_start,rcv_time);
+  } else {
+    if(tag == -1) {
+      for(unsigned int i = 2; i < msg_size-1; i++) {
+        data[i] = rand();
+      }
+    }
+    clock_gettime(CLOCK_MONOTONIC, &time_start);
+    MPI_Send(data,msg_size,MPI_INT,
+        (world_rank + 1) % world_size,msg_id,MPI_COMM_WORLD);
+    clock_gettime(CLOCK_MONOTONIC, &time_end);
+    tlog_timespec_sub(&time_end,&time_start,snd_time );
+  }
+  free(data);
+}
 
