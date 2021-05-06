@@ -9,14 +9,17 @@ endif
 
 all: mpi_timing
 
+mpi_tests.o: mpi_tests.c
+	$(MPICC) -c -o mpi_tests.o mpi_tests.c $(WARNINGS) $(INCLUDES) $(CFLAGS)
+
 mpi_timing.o: mpi_timing.c
 	$(MPICC) -c -o mpi_timing.o mpi_timing.c $(WARNINGS) $(INCLUDES) $(CFLAGS)
 
 timespec.o: tlog/timespec.c $(wildcard tlog/*h)
 	$(CC) -c -o timespec.o tlog/timespec.c $(WARNINGS) $(INCLUDES) $(CFLAGS)
 
-mpi_timing: mpi_timing.o timespec.o
-	$(MPICC) -o mpi_timing  mpi_timing.o timespec.o $(LDFLAGS) $(LIBRARIES) $(CFLAGS)
+mpi_timing: mpi_timing.o timespec.o mpi_tests.o
+	$(MPICC) -o mpi_timing  mpi_timing.o timespec.o mpi_tests.o $(LDFLAGS) $(LIBRARIES) $(CFLAGS)
 
 .PHONY:
 
