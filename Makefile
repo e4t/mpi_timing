@@ -24,8 +24,8 @@ mpi_timing: mpi_timing.o timespec.o mpi_tests.o
 .PHONY:
 
 archive:
-	@tar --transform="s,^,mpi_timing/," -cjf mpi_timing.tar.bz2 mpi_timing.c Makefile tlog/ && \
+	@tar --transform="s,^,mpi_timing/," -cjf mpi_timing.tar.bz2 mpi_timing.c mpi_tests.c mpi_tests.h Makefile tlog/ && \
 		echo "Created mpi_timing.tar.bz2"
 
 clean:
-	@rm -fv mpi_timing mpi_timing.o timespec.o
+	@rm -fv mpi_timing mpi_timing.o timespec.o mpi_tests.o
