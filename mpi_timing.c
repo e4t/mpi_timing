@@ -65,6 +65,7 @@ struct settings {
   unsigned int nr_runs;
   unsigned fill_random;
   unsigned wait;
+  unsigned time_evolution;
   enum run_mode mode;
 };
 
@@ -76,6 +77,7 @@ void usage(struct settings mysettings) {
   printf("\t-s SEED set random seed\n");
   printf("\t-t TIMES how many times to run the test, default is %i\n",mysettings.nr_runs);
   printf("\t-w MSEC to wait after every round trip, default is %i\n",mysettings.wait);
+  printf("\t-e print time evolution instead of min max mean media rms\n");
   printf("\tMODE can be 'round_trip', 'round_trip_msg_size', 'round_trip_wait' ,\
       \n\t'round_trip_sync', 'send'\n");
   printf("\n");
@@ -88,9 +90,10 @@ struct settings parse_cmdline(int argc,char** argv) {
   mysettings.fill_random = 0;
   mysettings.mode = round_trip;
   mysettings.wait = 20;
+  mysettings.time_evolution = 0;
   int opt = 0;
   srand(42);
-  while((opt = getopt(argc,argv,"rhs:t:w:")) != -1 ) {
+  while((opt = getopt(argc,argv,"rhs:t:w:e")) != -1 ) {
     switch(opt) {
       case 'r':
         mysettings.fill_random = 1;
@@ -106,6 +109,9 @@ struct settings parse_cmdline(int argc,char** argv) {
         break;
       case 'w':
         mysettings.wait = (atoi(optarg));
+        break;
+      case 'e':
+        mysettings.time_evolution = 1;
         break;
     }
   }
@@ -236,55 +242,82 @@ int main(int argc, char** argv) {
       times_rcv[j] = tlog_timespec_to_fp(&time_rcv);
       times_prb[j] = tlog_timespec_to_fp(&time_probe);
     }
-    gsl_sort(times_snd,1,mysettings.nr_runs); gsl_sort(times_rcv,1,mysettings.nr_runs);
-    gsl_sort(times_prb,1,mysettings.nr_runs);
-    double send_bf[15] = {
-        gsl_stats_max(times_snd,1,mysettings.nr_runs),gsl_stats_min(times_snd,1,mysettings.nr_runs),
-        gsl_stats_mean(times_snd,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_snd,1,mysettings.nr_runs),
-        gsl_stats_variance(times_snd,1,mysettings.nr_runs),
-        gsl_stats_max(times_rcv,1,mysettings.nr_runs),gsl_stats_min(times_rcv,1,mysettings.nr_runs),
-        gsl_stats_mean(times_rcv,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_rcv,1,mysettings.nr_runs),
-        gsl_stats_variance(times_rcv,1,mysettings.nr_runs),
-        gsl_stats_max(times_prb,1,mysettings.nr_runs),gsl_stats_min(times_prb,1,mysettings.nr_runs),
-        gsl_stats_mean(times_prb,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_prb,1,mysettings.nr_runs),
-        gsl_stats_variance(times_prb,1,mysettings.nr_runs) };
-    if (world_rank == 0 ) {
-      double *recv_bf = calloc(world_size * 15,sizeof(double));
-      clock_gettime(CLOCK_MONOTONIC, &time_start);
-      MPI_Gather(send_bf,15,MPI_DOUBLE,recv_bf,15,MPI_DOUBLE,0,MPI_COMM_WORLD);
-      clock_gettime(CLOCK_MONOTONIC, &time_end);
-      tlog_timespec_sub(&time_end,&time_start,&time_diff);
-      printf("%i %g\n",world_rank,send_bf[12]);
-      printf("# Time for gather %lu.%lu\n",time_diff.tv_sec,time_diff.tv_nsec);
-      printf("%i",pkg_size);
-      printf(" %g %g %g %g %g",
-          gsl_stats_max(&recv_bf[0],15,world_size),
-          gsl_stats_min(&recv_bf[1],15,world_size),
-          gsl_stats_mean(&recv_bf[2],15,world_size),
-          gsl_stats_mean(&recv_bf[3],15,world_size),
-          gsl_stats_mean(&recv_bf[4],15,world_size));
-      printf(" %g %g %g %g %g",
-          gsl_stats_max(&recv_bf[5],15,world_size),
-          gsl_stats_min(&recv_bf[6],15,world_size),
-          gsl_stats_mean(&recv_bf[7],15,world_size),
-          gsl_stats_mean(&recv_bf[8],15,world_size),
-          gsl_stats_mean(&recv_bf[9],15,world_size));
-      printf(" %g %g %g %g %g",
-          gsl_stats_max(&recv_bf[10],15,world_size),
-          gsl_stats_min(&recv_bf[11],15,world_size),
-          gsl_stats_mean(&recv_bf[12],15,world_size),
-          gsl_stats_mean(&recv_bf[13],15,world_size),
-          gsl_stats_mean(&recv_bf[14],15,world_size));
-      printf(" %lu %lu %lu",
-          (gsl_stats_max_index(&recv_bf[2],15,world_size)),
-          (gsl_stats_max_index(&recv_bf[7],15,world_size)),
-          (gsl_stats_max_index(&recv_bf[11],15,world_size)));
-      printf("\n");
-      free(recv_bf);
-    } else {             
-      MPI_Gather(send_bf,15,MPI_DOUBLE,NULL,15,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    if (mysettings.time_evolution == 0) {
+      gsl_sort(times_snd,1,mysettings.nr_runs); gsl_sort(times_rcv,1,mysettings.nr_runs);
+      gsl_sort(times_prb,1,mysettings.nr_runs);
+      double send_bf[15] = {
+          gsl_stats_max(times_snd,1,mysettings.nr_runs),gsl_stats_min(times_snd,1,mysettings.nr_runs),
+          gsl_stats_mean(times_snd,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_snd,1,mysettings.nr_runs),
+          gsl_stats_variance(times_snd,1,mysettings.nr_runs),
+          gsl_stats_max(times_rcv,1,mysettings.nr_runs),gsl_stats_min(times_rcv,1,mysettings.nr_runs),
+          gsl_stats_mean(times_rcv,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_rcv,1,mysettings.nr_runs),
+          gsl_stats_variance(times_rcv,1,mysettings.nr_runs),
+          gsl_stats_max(times_prb,1,mysettings.nr_runs),gsl_stats_min(times_prb,1,mysettings.nr_runs),
+          gsl_stats_mean(times_prb,1,mysettings.nr_runs),gsl_stats_median_from_sorted_data(times_prb,1,mysettings.nr_runs),
+          gsl_stats_variance(times_prb,1,mysettings.nr_runs) };
+      if (world_rank == 0 ) {
+        double *recv_bf = calloc(world_size * 15,sizeof(double));
+        clock_gettime(CLOCK_MONOTONIC, &time_start);
+        MPI_Gather(send_bf,15,MPI_DOUBLE,recv_bf,15,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        clock_gettime(CLOCK_MONOTONIC, &time_end);
+        tlog_timespec_sub(&time_end,&time_start,&time_diff);
+        printf("%i %g\n",world_rank,send_bf[12]);
+        printf("# Time for gather %lu.%lu\n",time_diff.tv_sec,time_diff.tv_nsec);
+        printf("%i",pkg_size);
+        printf(" %g %g %g %g %g",
+            gsl_stats_max(&recv_bf[0],15,world_size),
+            gsl_stats_min(&recv_bf[1],15,world_size),
+            gsl_stats_mean(&recv_bf[2],15,world_size),
+            gsl_stats_mean(&recv_bf[3],15,world_size),
+            gsl_stats_mean(&recv_bf[4],15,world_size));
+        printf(" %g %g %g %g %g",
+            gsl_stats_max(&recv_bf[5],15,world_size),
+            gsl_stats_min(&recv_bf[6],15,world_size),
+            gsl_stats_mean(&recv_bf[7],15,world_size),
+            gsl_stats_mean(&recv_bf[8],15,world_size),
+            gsl_stats_mean(&recv_bf[9],15,world_size));
+        printf(" %g %g %g %g %g",
+            gsl_stats_max(&recv_bf[10],15,world_size),
+            gsl_stats_min(&recv_bf[11],15,world_size),
+            gsl_stats_mean(&recv_bf[12],15,world_size),
+            gsl_stats_mean(&recv_bf[13],15,world_size),
+            gsl_stats_mean(&recv_bf[14],15,world_size));
+        printf(" %lu %lu %lu",
+            (gsl_stats_max_index(&recv_bf[2],15,world_size)),
+            (gsl_stats_max_index(&recv_bf[7],15,world_size)),
+            (gsl_stats_max_index(&recv_bf[11],15,world_size)));
+        printf("\n");
+        free(recv_bf);
+      } else {             
+        MPI_Gather(send_bf,15,MPI_DOUBLE,NULL,15,MPI_DOUBLE,0,MPI_COMM_WORLD);
+      }
+    } else {
+      double *send_bf = calloc(mysettings.nr_runs*3,sizeof(double));
+      memcpy(send_bf,times_snd,mysettings.nr_runs*sizeof(double));
+      memcpy(send_bf+mysettings.nr_runs,times_rcv,mysettings.nr_runs*sizeof(double));
+      memcpy(send_bf+2*mysettings.nr_runs,times_prb,mysettings.nr_runs*sizeof(double));
+      if(world_rank != 0) {
+        MPI_Gather(send_bf,mysettings.nr_runs*3,MPI_DOUBLE,
+            NULL,mysettings.nr_runs*3,MPI_DOUBLE,0,MPI_COMM_WORLD);
+      } else {
+        double *rcv_buffer = calloc(mysettings.nr_runs*3*world_size,sizeof(double)); 
+        MPI_Gather(send_bf,mysettings.nr_runs*3,MPI_DOUBLE,
+            rcv_buffer,mysettings.nr_runs*3,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        for(unsigned int k = 0; k < mysettings.nr_runs; k++) {
+          printf("%i",pkg_size);
+          for(int l = 0; l < world_size; l++) {
+            printf(" %g %g %g",rcv_buffer[k+(3*mysettings.nr_runs*l)],
+                rcv_buffer[k+mysettings.nr_runs+(3*mysettings.nr_runs*l)],
+                rcv_buffer[k+2*mysettings.nr_runs+(3*mysettings.nr_runs*l)]);
+          }
+          printf("\n");
+        }
+        free(rcv_buffer);
+      }
+      free(send_bf);
     }
-  }
+
+  } 
 
 
 
