@@ -24,7 +24,7 @@ mpi_timing: mpi_timing.o timespec.o mpi_tests.o
 .PHONY:
 
 archive:
-	@git diff-index --quiet HEAD -- || echo "uncomitted changes, aborting"; exit 1
+	@git diff-index --quiet HEAD -- || ( echo "uncomitted changes, aborting"; exit 1)
 	@tar --transform="s,^,mpi_timing/," -cjf mpi_timing.tar.bz2 mpi_timing.c mpi_tests.c mpi_tests.h Makefile tlog/ && \
 		echo "Created mpi_timing.tar.bz2"
 
