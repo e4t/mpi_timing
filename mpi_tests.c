@@ -120,6 +120,7 @@ void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_t
 
 void send_func(const unsigned int msg_size,struct timespec *snd_time, 
     struct timespec *rcv_time,int tag) {
+  assert(world_size >= 2);
   assert(msg_size >= 3);
   int * data = calloc(msg_size,sizeof(int));
   data[0] = MAGIC_START; data[msg_size-1] = MAGIC_END;

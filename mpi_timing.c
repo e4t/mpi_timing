@@ -75,8 +75,9 @@ void usage(struct settings mysettings) {
   printf("\t-r initialize data with (pseudo) random values\n");
   printf("\t-s SEED set random seed\n");
   printf("\t-t TIMES how many times to run the test, default is %i\n",mysettings.nr_runs);
-  printf("\t-w MSEC to wait after every round trip, default it %i\n",mysettings.wait);
-  printf("\tMODE can be 'round_trip', 'round_trip_msg_size', 'round_trip_wait' and\n\t'round_trip_sync'\n");
+  printf("\t-w MSEC to wait after every round trip, default is %i\n",mysettings.wait);
+  printf("\tMODE can be 'round_trip', 'round_trip_msg_size', 'round_trip_wait' ,\
+      \n\t'round_trip_sync', 'send'\n");
   printf("\n");
   exit(EXIT_SUCCESS);
 }
@@ -202,6 +203,8 @@ int main(int argc, char** argv) {
     for(unsigned int j = 0; j < mysettings.nr_runs; j++) {
       /* now start with the ring test */
       struct timespec time_rcv, time_snd, time_probe; 
+      time_snd.tv_sec = 0; time_snd.tv_nsec = 0;
+      time_rcv.tv_sec = 0; time_rcv.tv_nsec = 0;
       time_probe.tv_sec = 0; time_probe.tv_nsec = 0;
       switch(mysettings.mode) {
         case round_trip:
