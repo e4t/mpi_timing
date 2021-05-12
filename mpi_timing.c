@@ -58,6 +58,7 @@ enum run_mode {
   round_trip_msg_size,
   round_trip_wait,
   round_trip_sync,
+  round_trip_delay,
   send,
 };
 
@@ -79,7 +80,7 @@ void usage(struct settings mysettings) {
   printf("\t-w MSEC to wait/delay after every round trip, default is %i\n",mysettings.wait);
   printf("\t-e print time evolution instead of min max mean media rms\n");
   printf("\tMODE can be 'round_trip', 'round_trip_msg_size', 'round_trip_wait' ,\
-      \n\t'round_trip_sync', 'send'\n");
+      \n\t'round_trip_sync', 'send', 'rount_trip_delay'\n");
   printf("\n");
   exit(EXIT_SUCCESS);
 }
@@ -126,6 +127,8 @@ struct settings parse_cmdline(int argc,char** argv) {
       mysettings.mode = round_trip_wait;
     else if (strcmp("send",argv[optind]) == 0) 
       mysettings.mode = send;
+    else if (strcmp("round_trip_delay",argv[optind]) == 0) 
+      mysettings.mode = round_trip_delay;
     else
       usage(mysettings);
   }
@@ -231,6 +234,10 @@ int main(int argc, char** argv) {
           break;
         case send:
           send_func(pkg_size,&time_snd,&time_rcv,msg_count);
+          msg_count++;
+          break;
+        case round_trip_delay:
+          round_trip_delayed_func(pkg_size,&time_snd,&time_rcv,msg_count,mysettings.wait);
           msg_count++;
           break;
         default:
