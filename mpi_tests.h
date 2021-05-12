@@ -24,4 +24,7 @@ void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_t
 void send_func(const unsigned int msg_size,struct timespec *snd_time, 
     struct timespec *rcv_time,int tag);
 
+void round_trip_delayed_func(const unsigned int msg_size,struct timespec *snd_time, 
+    struct timespec *rcv_time,int tag,unsigned int delay);
+
 #endif

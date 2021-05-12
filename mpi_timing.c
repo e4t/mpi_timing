@@ -76,7 +76,7 @@ void usage(struct settings mysettings) {
   printf("\t-r initialize data with (pseudo) random values\n");
   printf("\t-s SEED set random seed\n");
   printf("\t-t TIMES how many times to run the test, default is %i\n",mysettings.nr_runs);
-  printf("\t-w MSEC to wait after every round trip, default is %i\n",mysettings.wait);
+  printf("\t-w MSEC to wait/delay after every round trip, default is %i\n",mysettings.wait);
   printf("\t-e print time evolution instead of min max mean media rms\n");
   printf("\tMODE can be 'round_trip', 'round_trip_msg_size', 'round_trip_wait' ,\
       \n\t'round_trip_sync', 'send'\n");
