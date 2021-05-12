@@ -80,7 +80,7 @@ void usage(struct settings mysettings) {
   printf("\t-w MSEC to wait/delay after every round trip, default is %i\n",mysettings.wait);
   printf("\t-e print time evolution instead of min max mean media rms\n");
   printf("\tMODE can be 'round_trip', 'round_trip_msg_size', 'round_trip_wait' ,\
-      \n\t'round_trip_sync', 'send', 'rount_trip_delay'\n");
+      \n\t'round_trip_sync', 'send', 'round_trip_delay'\n");
   printf("\n");
   exit(EXIT_SUCCESS);
 }
