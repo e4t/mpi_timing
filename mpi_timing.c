@@ -268,7 +268,6 @@ int main(int argc, char** argv) {
         MPI_Gather(send_bf,15,MPI_DOUBLE,recv_bf,15,MPI_DOUBLE,0,MPI_COMM_WORLD);
         clock_gettime(CLOCK_MONOTONIC, &time_end);
         tlog_timespec_sub(&time_end,&time_start,&time_diff);
-        printf("%i %g\n",world_rank,send_bf[12]);
         printf("# Time for gather %lu.%lu\n",time_diff.tv_sec,time_diff.tv_nsec);
         printf("%i",pkg_size);
         printf(" %g %g %g %g %g",
