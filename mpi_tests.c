@@ -157,7 +157,6 @@ void round_trip_delayed_func(const unsigned int msg_size,struct timespec *snd_ti
   int msg_id = MAGIC_ID;
   struct timespec time_start, time_end;
   if(world_rank != 0) {
-    usleep(delay);
     clock_gettime(CLOCK_MONOTONIC, &time_start);
     MPI_Recv(data,msg_size,MPI_INT,
         world_rank - 1,msg_id,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
