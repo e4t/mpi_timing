@@ -25,8 +25,10 @@ mpi_timing: mpi_timing.o timespec.o mpi_tests.o
 
 archive:
 	@git diff-index --quiet HEAD -- || ( echo "uncomitted changes, aborting"; exit 1)
-	@tar --transform="s,^,mpi_timing/," -cjf mpi_timing.tar.bz2 mpi_timing.c mpi_tests.c mpi_tests.h Makefile tlog/ && \
+	@git log > CHANGELOG
+	@tar --transform="s,^,mpi_timing/," -cjf mpi_timing.tar.bz2 mpi_timing.c mpi_tests.c mpi_tests.h Makefile CHANGELOG tlog/ && \
 		echo "Created mpi_timing.tar.bz2"
+	@rm CHANGELOG
 
 clean:
 	@rm -fv mpi_timing mpi_timing.o timespec.o mpi_tests.o
