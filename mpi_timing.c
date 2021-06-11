@@ -55,6 +55,7 @@ int int_pow(int base, int exp) {
 
 enum run_mode {
   round_trip,
+  dround_trip,
   round_trip_msg_size,
   round_trip_wait,
   round_trip_sync,
@@ -80,7 +81,7 @@ void usage(struct settings mysettings) {
   printf("\t-t TIMES how many times to run the test, default is %i\n",mysettings.nr_runs);
   printf("\t-w MSEC to wait/delay after every round trip, default is %i\n",mysettings.wait);
   printf("\t-e print time evolution instead of min max mean media rms\n");
-  printf("\tMODE can be 'round_trip', 'round_trip_msg_size', 'round_trip_wait' ,\
+  printf("\tMODE can be 'round_trip','dround_trip', 'round_trip_msg_size', 'round_trip_wait' ,\
       \n\t'round_trip_sync', 'send', 'round_trip_delay'\n");
   printf("\n");
   exit(EXIT_SUCCESS);
@@ -120,6 +121,8 @@ struct settings parse_cmdline(int argc,char** argv) {
   for(; optind < argc; optind++){ //when some extra arguments are passed
     if (strcmp("round_trip",argv[optind]) == 0) 
       mysettings.mode = round_trip;
+    else if (strcmp("dround_trip",argv[optind]) == 0) 
+      mysettings.mode = dround_trip;
     else if (strcmp("round_trip_msg_size",argv[optind]) == 0) 
       mysettings.mode = round_trip_msg_size;
     else if (strcmp("round_trip_sync",argv[optind]) == 0) 
@@ -221,6 +224,10 @@ int main(int argc, char** argv) {
       switch(mysettings.mode) {
         case round_trip:
           round_trip_func(pkg_size,&time_snd,&time_rcv,msg_count);
+          msg_count++;
+          break;
+        case dround_trip:
+          dround_trip_func(pkg_size,&time_snd,&time_rcv,msg_count);
           msg_count++;
           break;
         case round_trip_msg_size:
