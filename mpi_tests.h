@@ -32,4 +32,7 @@ void send_delay_func(const unsigned int msg_size,struct timespec *snd_time,
 void round_trip_delayed_func(const unsigned int msg_size,struct timespec *snd_time, 
     struct timespec *rcv_time,int tag,unsigned int delay);
 
+void single_trip_func(const unsigned int msg_size,struct timespec *snd_time, 
+    struct timespec *rcv_time,int tag);
+
 #endif

@@ -62,6 +62,7 @@ enum run_mode {
   round_trip_delay,
   send,
   send_delay,
+  single_trip,
 };
 
 struct settings {
@@ -135,6 +136,8 @@ struct settings parse_cmdline(int argc,char** argv) {
       mysettings.mode = send_delay;
     else if (strcmp("round_trip_delay",argv[optind]) == 0) 
       mysettings.mode = round_trip_delay;
+    else if (strcmp("single_trip",argv[optind]) == 0) 
+      mysettings.mode = single_trip;
     else
       usage(mysettings);
   }
@@ -252,6 +255,10 @@ int main(int argc, char** argv) {
           break;
         case round_trip_delay:
           round_trip_delayed_func(pkg_size,&time_snd,&time_rcv,msg_count,mysettings.wait);
+          msg_count++;
+          break;
+        case single_trip:
+          single_trip_func(pkg_size,&time_snd,&time_rcv,msg_count);
           msg_count++;
           break;
         default:
