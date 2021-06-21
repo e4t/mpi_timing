@@ -333,6 +333,9 @@ main(int argc, char** argv) {
         tlog_timespec_sub(&time_end, &time_start, &time_diff);
 
         printf("# Time for gather %lu.%lu\n",time_diff.tv_sec,time_diff.tv_nsec);
+        printf("# max_snd_t min_snd_t avg_snd_t med_snd_t var_snd_t "
+	       "max_rcv_t min_rcv_t avg_rcv_t med_rcv_t var_rcv_t "
+	       "max_prb_t min_prb_t avg_prb_t med_prb_t var_prb_t i_avg_snd i_avg_rcv i_min_prb\n");
         printf("%i",pkg_size);
         printf(" %g %g %g %g %g",
             gsl_stats_max(&recv_bf[0], 15, world_size),
