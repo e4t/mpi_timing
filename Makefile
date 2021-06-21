@@ -1,11 +1,17 @@
 CFLAGS +=  -std=gnu99 -ggdb
 WARNINGS += -Wall -Wextra
 LDFLAGS =
-LIBRARIES = -lm -lgslcblas -lgsl
+LIBRARIES = -lm
 INCLUDES += -I./
 ifndef MPICC
 MPICC=mpicc
 endif
+GSL_CFLAGS != pkg-config --silence-errors --cflags-only-I gsl
+GSLBLAS_CFLAGS != pkg-config --silence-errors --cflags-only-I gsl
+GSL_LIBS != pkg-config --silence-errors --libs gsl
+GSLBLAS_LIBS != pkg-config --silence-errors --libs gsl
+CFLAGS += $(GSL_CFLAGS) $(GSLBLAS_CFLAGS)
+LIBRARIES += $(GSL_LIBS) $(GSLBLAS_LIBS)
 
 all: mpi_timing
 
