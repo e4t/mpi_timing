@@ -358,7 +358,7 @@ main(int argc, char** argv) {
         printf(" %lu %lu %lu",
             (gsl_stats_max_index(&recv_bf[2], 15, world_size)),
             (gsl_stats_max_index(&recv_bf[7], 15, world_size)),
-            (gsl_stats_max_index(&recv_bf[11], 15, world_size)));
+            (gsl_stats_max_index(&recv_bf[12], 15, world_size)));
         printf("\n");
         free(recv_bf);
       } else {
