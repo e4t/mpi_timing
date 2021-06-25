@@ -9,33 +9,33 @@
 extern int world_rank;
 extern int world_size;
 
-void round_trip_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag);
-void dround_trip_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag);
+void round_trip_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time, int tag);
+void dround_trip_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time, int tag);
 
-void round_trip_sync_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag);
+void round_trip_sync_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time, int tag);
 
-void round_trip_wait_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag,unsigned int wait);
+void round_trip_wait_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time, int tag, unsigned int wait);
 
-void round_trip_msg_size_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,struct timespec* probe_time,int tag);
+void round_trip_msg_size_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time, struct timespec* probe_time, int tag);
 
-void send_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag);
+void send_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time, int tag);
 
-void send_delay_func(const unsigned int msg_size,struct timespec *snd_time, 
+void send_delay_func(const unsigned int msg_size, struct timespec *snd_time,
     struct timespec *rcv_time,int tag, unsigned int delay);
 
-void round_trip_delayed_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag,unsigned int delay);
+void round_trip_delayed_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time,int tag, unsigned int delay);
 
-void single_trip_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag);
+void single_trip_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time, int tag);
 
-void round_trip_wait_recv_func(const unsigned int msg_size,struct timespec *snd_time, 
-    struct timespec *rcv_time,int tag,unsigned int wait);
+void round_trip_wait_recv_func(const unsigned int msg_size, struct timespec *snd_time,
+    struct timespec *rcv_time, int tag, unsigned int wait);
 
 #endif
