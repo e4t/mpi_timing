@@ -55,6 +55,7 @@ int int_pow(int base, int exp) {
 
 enum run_mode {
   round_trip,
+  round_trip_total,
   dround_trip,
   round_trip_msg_size,
   round_trip_wait,
@@ -136,6 +137,8 @@ parse_cmdline(int argc,char** argv)
   for(; optind < argc; optind++){ //when some extra arguments are passed
     if (strcmp("round_trip",argv[optind]) == 0)
       mysettings.mode = round_trip;
+    if (strcmp("round_trip_total",argv[optind]) == 0)
+      mysettings.mode = round_trip_total;
     else if (strcmp("dround_trip",argv[optind]) == 0)
       mysettings.mode = dround_trip;
     else if (strcmp("round_trip_msg_size",argv[optind]) == 0)
@@ -258,6 +261,10 @@ main(int argc, char** argv) {
           round_trip_func(pkg_size, &time_snd, &time_rcv, msg_count);
           msg_count++;
           break;
+        case round_trip_total:
+          round_trip_total_func(pkg_size, &time_snd, msg_count);
+          msg_count++;
+          break;
         case dround_trip:
           dround_trip_func(pkg_size, &time_snd, &time_rcv, msg_count);
           msg_count++;
@@ -341,30 +348,55 @@ main(int argc, char** argv) {
         printf("# max_snd_t min_snd_t avg_snd_t med_snd_t var_snd_t "
 	       "max_rcv_t min_rcv_t avg_rcv_t med_rcv_t var_rcv_t "
 	       "max_prb_t min_prb_t avg_prb_t med_prb_t var_prb_t i_avg_snd i_avg_rcv i_min_prb\n");
-        printf("%i",pkg_size);
-        printf(" %g %g %g %g %g",
-            gsl_stats_max(&recv_bf[0], 15, world_size),
-            gsl_stats_min(&recv_bf[1], 15, world_size),
-            gsl_stats_mean(&recv_bf[2], 15, world_size),
-            gsl_stats_mean(&recv_bf[3], 15, world_size),
-            gsl_stats_mean(&recv_bf[4], 15, world_size));
-        printf(" %g %g %g %g %g",
-            gsl_stats_max(&recv_bf[5], 15, world_size),
-            gsl_stats_min(&recv_bf[6], 15, world_size),
-            gsl_stats_mean(&recv_bf[7], 15, world_size),
-            gsl_stats_mean(&recv_bf[8], 15, world_size),
-            gsl_stats_mean(&recv_bf[9], 15, world_size));
-        printf(" %g %g %g %g %g",
-            gsl_stats_max(&recv_bf[10], 15, world_size),
-            gsl_stats_min(&recv_bf[11], 15, world_size),
-            gsl_stats_mean(&recv_bf[12], 15, world_size),
-            gsl_stats_mean(&recv_bf[13], 15, world_size),
-            gsl_stats_mean(&recv_bf[14], 15, world_size));
-        printf(" %lu %lu %lu",
-            (gsl_stats_max_index(&recv_bf[2], 15, world_size)),
-            (gsl_stats_max_index(&recv_bf[7], 15, world_size)),
-            (gsl_stats_max_index(&recv_bf[12], 15, world_size)));
-        printf("\n");
+	if (!mysettings.by_rank) {
+	  printf("%i",pkg_size);
+	  printf(" %g %g %g %g %g",
+		 gsl_stats_max(&recv_bf[0], 15, world_size),
+		 gsl_stats_min(&recv_bf[1], 15, world_size),
+		 gsl_stats_mean(&recv_bf[2], 15, world_size),
+		 gsl_stats_mean(&recv_bf[3], 15, world_size),
+		 gsl_stats_mean(&recv_bf[4], 15, world_size));
+	  printf(" %g %g %g %g %g",
+		 gsl_stats_max(&recv_bf[5], 15, world_size),
+		 gsl_stats_min(&recv_bf[6], 15, world_size),
+		 gsl_stats_mean(&recv_bf[7], 15, world_size),
+		 gsl_stats_mean(&recv_bf[8], 15, world_size),
+		 gsl_stats_mean(&recv_bf[9], 15, world_size));
+	  printf(" %g %g %g %g %g",
+		 gsl_stats_max(&recv_bf[10], 15, world_size),
+		 gsl_stats_min(&recv_bf[11], 15, world_size),
+		 gsl_stats_mean(&recv_bf[12], 15, world_size),
+		 gsl_stats_mean(&recv_bf[13], 15, world_size),
+		 gsl_stats_mean(&recv_bf[14], 15, world_size));
+	  printf(" %lu %lu %lu",
+		 (gsl_stats_max_index(&recv_bf[2], 15, world_size)),
+		 (gsl_stats_max_index(&recv_bf[7], 15, world_size)),
+		 (gsl_stats_max_index(&recv_bf[12], 15, world_size)));
+	  printf("\n");
+	} else {
+	  for (int i=0; i < world_size; i++) {
+	    printf("[%i] %i",i,pkg_size);
+	    printf(" %g %g %g %g %g",
+		   recv_bf[0 + 15 * i],
+		   recv_bf[1 + 15 * i],
+		   recv_bf[2 + 15 * i],
+	           recv_bf[3 + 15 * i],
+		   recv_bf[4 + 15 * i]);
+	    printf(" %g %g %g %g %g",
+		   recv_bf[5 + 15 * i],
+		   recv_bf[6 + 15 * i],
+		   recv_bf[7 + 15 * i],
+		   recv_bf[8 + 15 * i],
+		   recv_bf[9 + 15 * i]);
+	    printf(" %g %g %g %g %g",
+		   recv_bf[10 + 15 * i],
+		   recv_bf[11 + 15 * i],
+		   recv_bf[12 + 15 * i],
+		   recv_bf[13 + 15 * i],
+		   recv_bf[14 + 15 * i]);
+	    printf("\n");
+	  }
+	}
         free(recv_bf);
       } else {
         MPI_Gather(send_bf, 15, MPI_DOUBLE,

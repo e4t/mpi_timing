@@ -50,6 +50,47 @@ round_trip_func(const unsigned int msg_size,
   free(data);
 }
 
+void
+round_trip_total_func(const unsigned int msg_size,
+		      struct timespec *snd_time,
+		      int tag)
+{
+ assert(msg_size >= 3);
+  int * data = calloc(msg_size,sizeof(int));
+  int msg_id = MAGIC_ID;
+  struct timespec time_start, time_end;
+
+  data[0] = MAGIC_START; data[msg_size-1] = MAGIC_END;
+  data[1] = tag;
+
+  if(world_rank == 0 && tag == -1) {
+    for(unsigned int i = 2; i < msg_size-1; i++) {
+      data[i] = rand();
+    }
+  }
+
+  clock_gettime(CLOCK_MONOTONIC, &time_start);
+
+  if(world_rank != 0) {
+    MPI_Recv(data, msg_size, MPI_INT, world_rank - 1,
+	     msg_id, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  }
+
+  MPI_Send(data, msg_size, MPI_INT,
+      (world_rank + 1) % world_size,
+	   msg_id, MPI_COMM_WORLD);
+
+  if(world_rank == 0) {
+    MPI_Recv(data, msg_size, MPI_INT, world_size-1,
+	     msg_id, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  }
+
+  clock_gettime(CLOCK_MONOTONIC, &time_end);
+  tlog_timespec_sub(&time_end, &time_start, snd_time );
+
+  free(data);
+}
+
 void dround_trip_func(const unsigned int msg_size,
 		      struct timespec *snd_time,
 		      struct timespec *rcv_time,

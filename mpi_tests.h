@@ -13,6 +13,8 @@ void round_trip_func(const unsigned int msg_size, struct timespec *snd_time,
     struct timespec *rcv_time, int tag);
 void dround_trip_func(const unsigned int msg_size, struct timespec *snd_time,
     struct timespec *rcv_time, int tag);
+void round_trip_total_func(const unsigned int msg_size, struct timespec *snd_time,
+			   int tag);
 
 void round_trip_sync_func(const unsigned int msg_size, struct timespec *snd_time,
     struct timespec *rcv_time, int tag);
