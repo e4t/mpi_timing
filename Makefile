@@ -1,15 +1,15 @@
 CFLAGS +=  -std=gnu99 -ggdb
 WARNINGS += -Wall -Wextra
 LDFLAGS =
-LIBRARIES = -lm
+LIBRARIES = -lm -lgsl
 INCLUDES += -I./
 ifndef MPICC
 MPICC=mpicc
 endif
 GSL_CFLAGS != pkg-config --silence-errors --cflags-only-I gsl
-GSLBLAS_CFLAGS != pkg-config --silence-errors --cflags-only-I gsl
+GSLBLAS_CFLAGS != pkg-config --silence-errors --cflags-only-I gslcblas
 GSL_LIBS != pkg-config --silence-errors --libs gsl
-GSLBLAS_LIBS != pkg-config --silence-errors --libs gsl
+GSLBLAS_LIBS != pkg-config --silence-errors --libs gslcblas
 CFLAGS += $(GSL_CFLAGS) $(GSLBLAS_CFLAGS)
 LIBRARIES += $(GSL_LIBS) $(GSLBLAS_LIBS)
 
@@ -25,6 +25,7 @@ timespec.o: tlog/timespec.c $(wildcard tlog/*h)
 	$(CC) -c -o timespec.o tlog/timespec.c $(WARNINGS) $(INCLUDES) $(CFLAGS)
 
 mpi_timing: mpi_timing.o timespec.o mpi_tests.o
+	echo $(LIBRARIES)
 	$(MPICC) -o mpi_timing  mpi_timing.o timespec.o mpi_tests.o $(LDFLAGS) $(LIBRARIES) $(CFLAGS)
 
 .PHONY:
